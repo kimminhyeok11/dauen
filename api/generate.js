@@ -1,5 +1,15 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 // 이 파일은 Vercel 서버에서만 실행됩니다.
-// 따라서 process.env.GEMINI_API_KEY는 사용자에게 노출되지 않습니다.
+// 환경 변수에서 API 키 가져오기
+const apiKey = process.env.GEMINI_API_KEY;
+
+if (!apiKey) {
+  console.error('GEMINI_API_KEY is not set in environment variables');
+}
+
+// Gemini 클라이언트 초기화
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export default async function handler(req, res) {
   // 1. CORS 헤더 설정
@@ -24,39 +34,114 @@ export default async function handler(req, res) {
   });
 
   try {
-    // 2. 프론트엔드에서 보낸 요청 데이터 (타입, 프롬프트, 대화기록)를 받음
-    const { type, prompt, chatHistory } = req.body;
+    const { type, prompt, chatHistory, fullPrompt } = req.body;
     
-    // 3. 필수 파라미터 검증
-    if (!chatHistory) {
+    // 4. 필수 파라미터 검증
+    if (!type || (type === 'text' && !chatHistory) || (type === 'image' && !prompt)) {
       console.error('Missing required parameters:', { type, prompt, chatHistory });
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // 4. API 키 설정 (테스트용 하드코딩)
-    const apiKey = 'AIzaSyBcMKVcue0m4OpJ1qLDd2h9T5j1w6lzt6k';
-    
-    console.log('Using new API Key:', apiKey ? 'Key is set' : 'Key is missing');
+    console.log('Using API Key:', apiKey ? 'Key is set' : 'Key is missing');
     console.log('Request type:', type);
-    console.log('Chat history length:', chatHistory.length);
+    
+    if (chatHistory) {
+      console.log('Chat history length:', chatHistory.length);
+    }
 
-    let apiUrl;
-    let payload;
-
-    // 3. 요청 타입에 따라 Gemini API 주소와 요청 데이터를 다르게 설정
+    // 5. 요청 타입에 따라 처리
     if (type === 'text') {
-      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      
-      // 대화 기록이 유효한지 확인하고, 없으면 기본 대화로 초기화
-      const contents = Array.isArray(chatHistory) && chatHistory.length > 0 
-        ? chatHistory 
-        : [
-            { role: 'user', parts: [{ text: '안녕! 너는 누구야?' }] },
-            { role: 'model', parts: [{ text: '안녕! 나는 다은이야. 만나서 반가워! 😊' }] }
-          ];
-          
-      console.log('Sending to Gemini API with contents:', JSON.stringify(contents, null, 2));
+      return handleTextGeneration(req, res, chatHistory);
+    } else if (type === 'image') {
+      return handleImageGeneration(req, res, prompt, fullPrompt || prompt);
+    } else {
+      return res.status(400).json({ error: 'Invalid request type' });
+    }
+  } catch (error) {
+    console.error('Error in API handler:', error);
+    return res.status(500).json({ 
+      error: 'Internal Server Error',
+      details: error.message 
+    });
+  }
+}
 
+// 텍스트 생성 처리
+async function handleTextGeneration(req, res, chatHistory) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // 대화 기록을 Gemini API 형식으로 변환
+    const history = chatHistory.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.parts[0].text }]
+    }));
+    
+    const chat = model.startChat({
+      history: history,
+      generationConfig: {
+        maxOutputTokens: 1000,
+      },
+    });
+
+    const result = await chat.sendMessage(history[history.length - 1].parts[0].text);
+    const response = await result.response;
+    const text = response.text();
+    
+    return res.status(200).json({
+      candidates: [{
+        content: {
+          parts: [{ text }]
+        }
+      }]
+    });
+  } catch (error) {
+    console.error('Error in text generation:', error);
+    return res.status(500).json({ 
+      error: 'Text generation failed',
+      details: error.message 
+    });
+  }
+}
+
+// 이미지 생성 처리
+async function handleImageGeneration(req, res, prompt, fullPrompt) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+    
+    const result = await model.generateContent({
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: fullPrompt },
+        ],
+      }],
+    });
+    
+    const response = await result.response;
+    const text = response.text();
+    
+    // 이미지 URL이 포함된 텍스트 응답 반환
+    // 실제로는 이미지 생성 API를 사용하거나, base64 인코딩된 이미지를 반환해야 함
+    return res.status(200).json({
+      candidates: [{
+        content: {
+          parts: [{
+            text: text,
+            // 실제 구현에서는 여기에 이미지 데이터나 URL을 포함시킵니다.
+            // 예: inlineData: { data: base64Image, mimeType: 'image/png' }
+          }]
+        }
+      }]
+    });
+  } catch (error) {
+    console.error('Error in image generation:', error);
+    return res.status(500).json({ 
+      error: 'Image generation failed',
+      details: error.message 
+    });
+  }
+}
       payload = {
         contents,
         generationConfig: {

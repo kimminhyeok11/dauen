@@ -294,20 +294,15 @@ async function generateImage(prompt, chatHistory = []) {
     `;
 
     try {
-        // Gemini API 키를 직접 하드코딩 (테스트용)
-        const apiKey = 'AIzaSyBcMKVcue0m4OpJ1qLDd2h9T5j1w6lzt6k';
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
-        
-        // Gemini API 요청 형식에 맞게 수정
-        const response = await fetch(apiUrl, {
+        // 백엔드 API 엔드포인트 사용
+        const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: fullPrompt }
-                    ]
-                }]
+                type: 'image',
+                prompt: prompt,
+                chatHistory: chatHistory,
+                fullPrompt: fullPrompt
             })
         });
 
