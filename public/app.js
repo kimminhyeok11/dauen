@@ -294,25 +294,47 @@ async function generateImage(prompt, chatHistory = []) {
     `;
 
     try {
-        const response = await fetch('/api/generate', {
+        // Gemini API 키를 직접 하드코딩 (테스트용)
+        const apiKey = 'AIzaSyBcMKVcue0m4OpJ1qLDd2h9T5j1w6lzt6k';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
+        
+        // Gemini API 요청 형식에 맞게 수정
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                type: 'image',
-                prompt: fullPrompt
-            }),
+                contents: [{
+                    parts: [
+                        { text: fullPrompt }
+                    ]
+                }]
+            })
         });
 
         if (!response.ok) {
-            const errorResult = await response.json();
-            throw new Error(errorResult.error || 'API request failed');
+            const errorText = await response.text();
+            console.error('Image generation API error:', errorText);
+            throw new Error('이미지 생성 중 오류가 발생했습니다.');
         }
 
         const result = await response.json();
-        if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
-            return { imageUrl: `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}` };
+        console.log('Image generation API response:', result);
+        
+        // Gemini API 응답 형식에 맞게 수정
+        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+            // 텍스트 응답인 경우 (이미지 URL이 포함된 경우)
+            const textResponse = result.candidates[0].content.parts[0].text;
+            // 이미지 URL이 포함되어 있다고 가정하고 반환
+            return { imageUrl: textResponse };
+        } else if (result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+            // Base64 인코딩된 이미지 데이터인 경우
+            return { 
+                imageUrl: `data:image/png;base64,${result.candidates[0].content.parts[0].inlineData.data}` 
+            };
         }
-        return { error: "이미지 데이터가 비어있습니다." };
+        
+        console.error('Unexpected API response format:', result);
+        return { error: "이미지 생성에 실패했습니다. 응답 형식을 확인해주세요." };
     } catch (error) {
         console.error("이미지 생성 오류:", error);
         return { error: error.message };
