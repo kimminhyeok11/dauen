@@ -11,9 +11,9 @@ export default async function handler(req, res) {
     // 2. 프론트엔드에서 보낸 요청 데이터 (타입, 프롬프트, 대화기록)를 받음
     const { type, prompt, chatHistory } = req.body;
     // 테스트를 위해 API 키를 직접 하드코딩 (실제 프로덕션에서는 절대 이렇게 하지 마세요!)
-    const apiKey = 'AIzaSyDVujt4BIeRBL6r6e59ekWBVt3Xyfdo5H8';
+    const apiKey = 'AIzaSyBcMKVcue0m4OpJ1qLDd2h9T5j1w6lzt6k';
     
-    console.log('Using API Key:', apiKey ? 'Key is set' : 'Key is missing');
+    console.log('Using new API Key:', apiKey ? 'Key is set' : 'Key is missing');
 
     let apiUrl;
     let payload;
