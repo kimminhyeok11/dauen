@@ -10,12 +10,10 @@ export default async function handler(req, res) {
   try {
     // 2. 프론트엔드에서 보낸 요청 데이터 (타입, 프롬프트, 대화기록)를 받음
     const { type, prompt, chatHistory } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      console.error('API key is not set in environment variables');
-      return res.status(500).json({ error: 'API key is not set' });
-    }
+    // 테스트를 위해 API 키를 직접 하드코딩 (실제 프로덕션에서는 절대 이렇게 하지 마세요!)
+    const apiKey = 'AIzaSyDVujt4BIeRBL6r6e59ekWBVt3Xyfdo5H8';
+    
+    console.log('Using API Key:', apiKey ? 'Key is set' : 'Key is missing');
 
     let apiUrl;
     let payload;
