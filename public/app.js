@@ -190,9 +190,22 @@ async function getAiResponse(currentHistory, prompt) {
         });
 
         if (!response.ok) {
-            const errorResult = await response.json();
-            console.error('API Error:', errorResult);
-            throw new Error(errorResult.error || `API request failed with status ${response.status}`);
+            let errorMessage = `API request failed with status ${response.status}`;
+            try {
+                const errorResult = await response.text();
+                console.error('API Error Response:', errorResult);
+                // JSON 파싱 시도
+                try {
+                    const jsonError = JSON.parse(errorResult);
+                    errorMessage = jsonError.error || errorMessage;
+                } catch (e) {
+                    // JSON 파싱 실패 시 원본 텍스트 사용
+                    errorMessage = errorResult || errorMessage;
+                }
+            } catch (e) {
+                console.error('Error parsing error response:', e);
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
