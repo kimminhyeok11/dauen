@@ -2,18 +2,43 @@
 // 따라서 process.env.GEMINI_API_KEY는 사용자에게 노출되지 않습니다.
 
 export default async function handler(req, res) {
-  // 1. POST 요청이 아니면 에러 처리
+  // 1. CORS 헤더 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // 2. OPTIONS 메소드에 대한 사전 요청 처리
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // 3. POST 요청이 아니면 에러 처리
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  console.log('Request received:', {
+    method: req.method,
+    headers: req.headers,
+    body: JSON.stringify(req.body, null, 2)
+  });
+
   try {
     // 2. 프론트엔드에서 보낸 요청 데이터 (타입, 프롬프트, 대화기록)를 받음
     const { type, prompt, chatHistory } = req.body;
-    // 테스트를 위해 API 키를 직접 하드코딩 (실제 프로덕션에서는 절대 이렇게 하지 마세요!)
+    
+    // 3. 필수 파라미터 검증
+    if (!chatHistory) {
+      console.error('Missing required parameters:', { type, prompt, chatHistory });
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // 4. API 키 설정 (테스트용 하드코딩)
     const apiKey = 'AIzaSyBcMKVcue0m4OpJ1qLDd2h9T5j1w6lzt6k';
     
     console.log('Using new API Key:', apiKey ? 'Key is set' : 'Key is missing');
+    console.log('Request type:', type);
+    console.log('Chat history length:', chatHistory.length);
 
     let apiUrl;
     let payload;
@@ -29,6 +54,8 @@ export default async function handler(req, res) {
             { role: 'user', parts: [{ text: '안녕! 너는 누구야?' }] },
             { role: 'model', parts: [{ text: '안녕! 나는 다은이야. 만나서 반가워! 😊' }] }
           ];
+          
+      console.log('Sending to Gemini API with contents:', JSON.stringify(contents, null, 2));
 
       payload = {
         contents,
@@ -61,23 +88,45 @@ export default async function handler(req, res) {
 
     console.log('Sending request to Gemini API:', { apiUrl, payload: JSON.stringify(payload).substring(0, 200) + '...' });
 
-    // 4. 서버에서 Gemini API로 실제 요청 전송
-    const response = await fetch(apiUrl, {
+    console.log('Sending request to Gemini API:', {
+      url: apiUrl,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload, null, 2)
+    });
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(payload),
     });
 
-    const responseData = await response.json();
-    console.log('Gemini API Response:', JSON.stringify(responseData).substring(0, 500) + '...');
-
-    if (!response.ok) {
-      console.error('Gemini API Error:', response.status, responseData);
-      throw new Error(`Gemini API request failed with status ${response.status}: ${JSON.stringify(responseData)}`);
+    const responseText = await response.text();
+    console.log('Raw response from Gemini API:', responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse JSON response:', e);
+      throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
     }
-
-    // 5. 성공 결과를 프론트엔드로 다시 전송
-    res.status(200).json(responseData);
+    
+    if (!response.ok) {
+      console.error('Gemini API error:', data);
+      return res.status(response.status).json({
+        error: 'Gemini API request failed',
+        status: response.status,
+        details: data
+      });
+    }
+    
+    console.log('Sending response to client:', JSON.stringify(data, null, 2));
+    
+    // 5. 성공 결과를 프론트엔드로 전송
+    res.status(200).json(data);
 
   } catch (error) {
     console.error('Internal Server Error:', error);
