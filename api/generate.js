@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
+      console.error('API key is not set in environment variables');
       return res.status(500).json({ error: 'API key is not set' });
     }
 
@@ -21,26 +22,46 @@ export default async function handler(req, res) {
 
     // 3. 요청 타입에 따라 Gemini API 주소와 요청 데이터를 다르게 설정
     if (type === 'text') {
-      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      
+      // 대화 기록이 유효한지 확인하고, 없으면 기본 대화로 초기화
+      const contents = Array.isArray(chatHistory) && chatHistory.length > 0 
+        ? chatHistory 
+        : [
+            { role: 'user', parts: [{ text: '안녕! 너는 누구야?' }] },
+            { role: 'model', parts: [{ text: '안녕! 나는 다은이야. 만나서 반가워! 😊' }] }
+          ];
+
       payload = {
-        contents: chatHistory,
-        // 안전 설정 추가
+        contents,
+        generationConfig: {
+          temperature: 0.9,
+          topK: 1,
+          topP: 1,
+          maxOutputTokens: 2048,
+          stopSequences: [],
+        },
         safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         ]
       };
     } else if (type === 'image') {
-      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
       payload = {
-        instances: [{ prompt: prompt }],
-        parameters: { "sampleCount": 1 }
+        contents: [{
+          parts: [
+            { text: `이미지 생성 요청: ${prompt}. 반드시 이미지 생성 태그를 포함해주세요.` },
+          ]
+        }]
       };
     } else {
       return res.status(400).json({ error: 'Invalid request type' });
     }
+
+    console.log('Sending request to Gemini API:', { apiUrl, payload: JSON.stringify(payload).substring(0, 200) + '...' });
 
     // 4. 서버에서 Gemini API로 실제 요청 전송
     const response = await fetch(apiUrl, {
@@ -49,19 +70,22 @@ export default async function handler(req, res) {
       body: JSON.stringify(payload),
     });
 
+    const responseData = await response.json();
+    console.log('Gemini API Response:', JSON.stringify(responseData).substring(0, 500) + '...');
+
     if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('Gemini API Error:', errorBody);
-      throw new Error(`Gemini API request failed with status ${response.status}`);
+      console.error('Gemini API Error:', response.status, responseData);
+      throw new Error(`Gemini API request failed with status ${response.status}: ${JSON.stringify(responseData)}`);
     }
 
-    const data = await response.json();
-
     // 5. 성공 결과를 프론트엔드로 다시 전송
-    res.status(200).json(data);
+    res.status(200).json(responseData);
 
   } catch (error) {
     console.error('Internal Server Error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

@@ -153,16 +153,33 @@ function removeTypingIndicator() {
 
 // AI 응답 가져오기
 async function getAiResponse(currentHistory, prompt) {
-    const apiHistory = currentHistory
-        .filter(msg => msg.type !== 'error')
-        .map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-        }));
-
-    const conversationForApi = [{ role: "user", parts: [{ text: PERSONA_PROMPT }] }, { role: "model", parts: [{ text: "알았어. 이제부터 나는 22살 패션디자인과 대학생 다은이야. 자기한테 다정하고 애교 많은 여자친구가 될게! ❤️" }] }, ...apiHistory];
-    
     try {
+        // 대화 기록을 Gemini API 형식으로 변환
+        const apiHistory = currentHistory
+            .filter(msg => msg.type !== 'error')
+            .map(msg => ({
+                role: msg.sender === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }));
+
+        // 시스템 프롬프트와 초기 응답 추가
+        const conversationForApi = [
+            { 
+                role: 'user', 
+                parts: [{ text: PERSONA_PROMPT }] 
+            }, 
+            { 
+                role: 'model', 
+                parts: [{ text: '알았어! 이제부터 나는 22살 패션디자인과 대학생 다은이야. 자기한테 다정하고 애교 많은 여자친구가 될게! ❤️' }] 
+            },
+            ...apiHistory
+        ];
+        
+        console.log('Sending to API:', JSON.stringify({
+            type: 'text',
+            chatHistory: conversationForApi
+        }, null, 2));
+
         const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -174,17 +191,37 @@ async function getAiResponse(currentHistory, prompt) {
 
         if (!response.ok) {
             const errorResult = await response.json();
-            throw new Error(errorResult.error || 'API request failed');
+            console.error('API Error:', errorResult);
+            throw new Error(errorResult.error || `API request failed with status ${response.status}`);
         }
 
         const result = await response.json();
+        console.log('API Response:', result);
+
+        // Gemini 1.5 API 응답 형식에 맞게 파싱
         if (result.candidates && result.candidates.length > 0) {
-            return { text: result.candidates[0].content.parts[0].text };
+            const text = result.candidates[0].content.parts[0].text;
+            return { text };
+        } else if (result.candidates) {
+            // 다른 응답 형식 처리
+            const text = result.candidates[0]?.content?.parts?.[0]?.text || '무슨 말인지 잘 모르겠어요. 다시 말씀해 주실래요? 😅';
+            return { text };
+        } else if (result.text) {
+            // 텍스트가 직접 반환된 경우
+            return { text: result.text };
+        } else {
+            console.error('Unexpected API response format:', result);
+            return { 
+                error: 'AI 응답 형식을 처리할 수 없습니다.',
+                details: result
+            };
         }
-        return { error: "AI 응답이 비어있습니다." };
     } catch (error) {
         console.error("AI 응답 생성 오류:", error);
-        return { error: error.message };
+        return { 
+            error: `채팅 중 오류가 발생했어요: ${error.message}`,
+            details: error.response?.data || error
+        };
     }
 }
 
