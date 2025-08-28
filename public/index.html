@@ -165,7 +165,9 @@
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
         function update(deltaTime){if(gameState!=='playing'||!player)return;
-            const speed=Math.min(6+score*0.005,12);player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
+            // 기본 속도 9, 최대 16으로 상향 조정
+            const speed = Math.min(9 + score * 0.007, 16); 
+            player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
             player.dy+=GRAVITY*deltaTime;player.x+=player.dx*deltaTime;player.y+=player.dy*deltaTime;
             if(player.dy>0){platforms.forEach(p=>{if(player.x<p.x+p.width&&player.x+player.width>p.x&&player.y+player.height>p.y&&player.y+player.height<p.y+p.height+10){player.y=p.y-player.height;player.dy=JUMP_FORCE;if(isAudioReady)jumpSound.triggerAttackRelease("C5","0.05");if(p.type==='crumbling'&&p.state==='intact'){p.state='shaking';if(isAudioReady)crumbleSound.triggerAttackRelease("0.1");}if(p.type==='moving')player.x+=p.dx*deltaTime;}});}
             if(player.x<-player.width)player.x=canvas.width;if(player.x>canvas.width)player.x=-player.width;if(player.y<cameraY+canvas.height/2.5)cameraY=player.y-canvas.height/2.5;if(player.y<highestY){highestY=player.y;score=Math.floor((canvas.height-80-highestY)/10);scoreDisplay.innerText=score;}
