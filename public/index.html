@@ -3,123 +3,363 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AI 여친 다은 ❤️</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>무한의 탑</title>
     <style>
-        :root {
-            --brand-yellow: #FEE500;
-            --chat-bg: #9bb7d5;
-            --system-message-bg: rgba(0, 0, 0, 0.15);
-            --error-bubble-bg: #fee2e2;
-            --error-text-color: #b91c1c;
-        }
         body {
-            font-family: 'Noto Sans KR', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            font-family: 'Malgun Gothic', sans-serif;
+            color: #e0e0e0;
+            overflow: hidden;
         }
-        .chat-container::-webkit-scrollbar, .album-grid::-webkit-scrollbar { display: none; }
-        .profile-image-modal { background-color: rgba(0,0,0,0.8); }
-        .message-bubble-wrapper {
-            animation: slide-up 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        h1 {
+            color: #fff;
+            text-shadow: 0 0 10px #fff, 0 0 20px #ff00ff, 0 0 30px #00ffff;
+            margin-bottom: 10px;
         }
-        @keyframes slide-up {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px; /* 세로 게임에 맞게 너비 조정 */
+            aspect-ratio: 9 / 16; /* 세로 비율 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        .typing-dots span {
-            display: inline-block; width: 7px; height: 7px;
-            border-radius: 50%; background-color: #a0aec0;
-            animation: typing-blink 1.4s infinite both; margin: 0 1px;
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(100, 100, 255, 0.5);
+            cursor: pointer;
         }
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing-blink {
-            0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; }
+        #touch-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 20px;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        .my-bubble::after {
-            content: ''; position: absolute; right: -7px; bottom: 8px;
-            width: 0; height: 0; border: 8px solid transparent;
-            border-left-color: var(--brand-yellow); border-right: 0;
-            border-bottom: 0; margin-top: -4px; margin-right: -1px;
+        .control-button {
+            width: 70px;
+            height: 70px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.1s;
         }
-        .other-bubble::before {
-            content: ''; position: absolute; left: -7px; bottom: 8px;
-            width: 0; height: 0; border: 8px solid transparent;
-            border-right-color: white; border-left: 0;
-            border-bottom: 0; margin-top: -4px; margin-left: -1px;
-        }
-        .error-bubble::before {
-            content: ''; position: absolute; left: -7px; bottom: 8px;
-            width: 0; height: 0; border: 8px solid transparent;
-            border-right-color: var(--error-bubble-bg); border-left: 0;
-            border-bottom: 0; margin-top: -4px; margin-left: -1px;
-        }
-        .photo-style {
-            border: 5px solid white;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.1);
-            transform: rotate(-2.5deg);
-            transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-            max-width: 65vw;
-            border-radius: 8px;
-        }
-        .photo-style:hover {
-            transform: rotate(0deg) scale(1.05);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), 0 8px 10px rgba(0, 0, 0, 0.15);
+        .control-button:active {
+            background-color: rgba(255, 255, 255, 0.4);
         }
     </style>
 </head>
-<body class="bg-black">
-    <div id="app" class="h-screen w-screen flex flex-col max-w-lg mx-auto bg-[var(--chat-bg)]">
-        <header class="bg-white/80 backdrop-blur-md text-gray-800 p-3 flex items-center justify-between z-20 flex-shrink-0 border-b border-gray-200/80">
-            <div class="flex items-center space-x-3">
-                 <img id="header-profile-pic" class="w-10 h-10 rounded-full object-cover bg-gray-300 animate-pulse" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="다은 프로필">
-                 <h1 class="text-xl font-bold text-gray-800">다은 ❤️</h1>
-            </div>
-            <div class="flex items-center space-x-2">
-                 <button id="album-btn-header" title="사진첩" class="p-2 rounded-full text-gray-600 hover:bg-gray-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                 </button>
-            </div>
-        </header>
-
-        <main id="chat-container" class="flex-1 p-3 overflow-y-auto"></main>
-
-        <footer class="bg-white p-2 flex items-center border-t border-gray-200 flex-shrink-0">
-            <button class="p-2 text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            </button>
-            <input type="text" id="message-input" class="flex-1 px-3 py-2 border-none focus:outline-none bg-white text-lg" placeholder="">
-            <button id="send-btn" class="bg-gray-300 text-white w-10 h-8 rounded-md flex items-center justify-center transition-all duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
-        </footer>
+<body>
+<h1>무한의 탑</h1>
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div id="touch-controls">
+        <div id="left-control" class="control-button">◀</div>
+        <div id="right-control" class="control-button">▶</div>
     </div>
+</div>
 
-    <!-- Modals -->
-    <div id="profile-modal" class="fixed inset-0 z-50 hidden items-center justify-center profile-image-modal">
-        <div class="p-4 bg-white rounded-lg shadow-xl relative">
-            <img id="modal-profile-pic" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="rounded-lg max-w-sm bg-gray-300" alt="다은 프로필 사진 확대">
-            <button id="close-profile-modal" class="absolute top-2 right-2 bg-white rounded-full p-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59L7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12L5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.38.38-1.02 0-1.4z"/></svg>
-            </button>
-        </div>
-    </div>
-    <div id="album-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60">
-        <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-2xl h-5/6 flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center">
-                <h2 class="text-xl font-bold">대화 서랍</h2>
-                <button id="close-album-modal" class="p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59L7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12L5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.38.38-1.02 0-1.4z"/></svg>
-                </button>
-            </div>
-            <div id="album-grid" class="p-4 flex-1 overflow-y-auto album-grid">
-                <!-- Album images will be injected here -->
-            </div>
-        </div>
-    </div>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('game-wrapper');
 
-    <script src="/app.js"></script>
+    let canvasWidth, canvasHeight;
+
+    function resizeCanvas() {
+        const rect = wrapper.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        canvasWidth = canvas.width;
+        canvasHeight = canvas.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- 게임 상태 및 상수 ---
+    let gameState = 'playing'; // 'playing', 'gameOver'
+    const GRAVITY = 0.5;
+    const JUMP_FORCE = -12;
+    const PLAYER_SPEED = 6;
+    
+    let player, platforms, stars, cameraY, score, highestY;
+
+    // --- 플레이어 객체 ---
+    function createPlayer() {
+        return {
+            x: canvasWidth / 2 - 20,
+            y: canvasHeight - 80,
+            width: 40,
+            height: 70,
+            dx: 0,
+            dy: 0,
+            onGround: false,
+            direction: 'right',
+            animationState: 'idle',
+            frameCount: 0,
+            animationFrame: 0,
+            animationSpeed: 5,
+        };
+    }
+
+    // --- 게임 초기화 ---
+    function initGame() {
+        player = createPlayer();
+        platforms = [];
+        stars = [];
+        cameraY = 0;
+        score = 0;
+        highestY = player.y;
+
+        // 시작 발판 생성
+        platforms.push({ x: 0, y: canvasHeight - 40, width: canvasWidth, height: 40 });
+        // 초기 플랫폼들 생성
+        for (let i = 1; i < 10; i++) {
+            generatePlatform(canvasHeight - i * 100);
+        }
+
+        // 별 생성
+        for (let i = 0; i < 100; i++) {
+            stars.push({
+                x: Math.random() * canvasWidth,
+                y: Math.random() * canvasHeight,
+                radius: Math.random() * 1.5,
+                alpha: Math.random()
+            });
+        }
+        gameState = 'playing';
+    }
+
+    function generatePlatform(yPos) {
+        const width = Math.random() * 80 + 80;
+        const x = Math.random() * (canvasWidth - width);
+        platforms.push({ x, y: yPos, width, height: 20 });
+    }
+
+    // --- 입력 처리 (키보드 & 터치) ---
+    const keys = { left: false, right: false };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'ArrowLeft') keys.left = true;
+        if (e.code === 'ArrowRight') keys.right = true;
+        if (e.code === 'Space' && gameState === 'gameOver') initGame();
+    });
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'ArrowLeft') keys.left = false;
+        if (e.code === 'ArrowRight') keys.right = false;
+    });
+    
+    canvas.addEventListener('click', () => {
+        if (gameState === 'gameOver') initGame();
+    });
+
+    const leftBtn = document.getElementById('left-control');
+    const rightBtn = document.getElementById('right-control');
+    leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
+    leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+    rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
+    rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+
+
+    // --- 그리기 함수 ---
+    function draw() {
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        
+        // 배경
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(1, '#0f0c29');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // 카메라 이동 적용
+        ctx.save();
+        ctx.translate(0, -cameraY);
+
+        // 별 그리기 (카메라에 따라 약간씩 움직이게)
+        stars.forEach(star => {
+            ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+            ctx.beginPath();
+            ctx.arc(star.x, star.y + cameraY * 0.9, star.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 플랫폼 그리기
+        platforms.forEach(p => {
+            const gradient = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+            gradient.addColorStop(0, '#6c5b7b');
+            gradient.addColorStop(1, '#355c7d');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+        });
+
+        // 플레이어 그리기
+        drawPlayer();
+
+        ctx.restore();
+        
+        // UI (점수)
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`점수: ${score}`, canvasWidth / 2, 40);
+
+        if (gameState === 'gameOver') {
+            drawGameOverScreen();
+        }
+    }
+
+    function drawPlayer() {
+        // 이전 버전의 플레이어 그리기 함수들 재사용
+        ctx.save();
+        ctx.fillStyle = '#f7f7f7';
+        const centerX = player.x + player.width / 2;
+        const centerY = player.y + player.height / 2;
+        ctx.translate(centerX, centerY);
+        if (player.direction === 'left') ctx.scale(-1, 1);
+        
+        switch (player.animationState) {
+            case 'jumping': drawJumpingFrame(); break;
+            case 'running': 
+                if (player.animationFrame < 10) drawRunningFrame1(); else drawRunningFrame2();
+                break;
+            default: drawIdleFrame(); break;
+        }
+        ctx.restore();
+    }
+    
+    function drawCharacterBody(armAngle1, armAngle2, legAngle1, legAngle2) {
+        const torsoX = -player.width / 4, torsoY = -player.height / 2;
+        ctx.beginPath(); ctx.arc(0, torsoY, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(torsoX, torsoY + 10); ctx.lineTo(torsoX + 20, torsoY + 10); ctx.lineTo(torsoX + 15, torsoY + 45); ctx.lineTo(torsoX + 5, torsoY + 45); ctx.closePath(); ctx.fill();
+        ctx.save(); ctx.translate(torsoX + 10, torsoY + 20); ctx.rotate(armAngle1); ctx.fillRect(-3, 0, 6, 25); ctx.restore();
+        ctx.save(); ctx.translate(torsoX + 10, torsoY + 20); ctx.rotate(armAngle2); ctx.fillStyle = '#ccc'; ctx.fillRect(-3, 0, 6, 25); ctx.restore();
+        ctx.fillStyle = '#f7f7f7';
+        ctx.save(); ctx.translate(torsoX + 10, torsoY + 45); ctx.rotate(legAngle1); ctx.fillRect(-4, 0, 8, 30); ctx.restore();
+        ctx.save(); ctx.translate(torsoX + 10, torsoY + 45); ctx.rotate(legAngle2); ctx.fillStyle = '#ccc'; ctx.fillRect(-4, 0, 8, 30); ctx.restore();
+    }
+    function drawIdleFrame() { drawCharacterBody(0.1, -0.1, 0.1, -0.1); }
+    function drawRunningFrame1() { drawCharacterBody(Math.PI / 4, -Math.PI / 4, Math.PI / 6, -Math.PI / 6); }
+    function drawRunningFrame2() { drawCharacterBody(-Math.PI / 4, Math.PI / 4, -Math.PI / 6, Math.PI / 6); }
+    function drawJumpingFrame() { drawCharacterBody(Math.PI / 3, -Math.PI / 3, Math.PI / 5, -Math.PI / 5); }
+
+    function drawGameOverScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('게임 오버', canvasWidth / 2, canvasHeight / 2 - 60);
+
+        ctx.font = '24px sans-serif';
+        ctx.fillText(`최종 점수: ${score}`, canvasWidth / 2, canvasHeight / 2);
+
+        ctx.font = '20px sans-serif';
+        ctx.fillText('화면을 터치하거나 Space를 눌러 다시 시작', canvasWidth / 2, canvasHeight / 2 + 50);
+    }
+
+    // --- 게임 로직 업데이트 ---
+    function update() {
+        if (gameState !== 'playing') return;
+
+        // 입력
+        player.dx = 0;
+        if (keys.left) { player.dx = -PLAYER_SPEED; player.direction = 'left'; }
+        if (keys.right) { player.dx = PLAYER_SPEED; player.direction = 'right'; }
+
+        // 물리
+        player.dy += GRAVITY;
+        player.x += player.dx;
+        player.y += player.dy;
+        player.onGround = false;
+
+        // 플랫폼 충돌 (올라갈 때만 충돌)
+        if (player.dy > 0) {
+            platforms.forEach(p => {
+                if (player.x < p.x + p.width &&
+                    player.x + player.width > p.x &&
+                    player.y + player.height > p.y &&
+                    player.y + player.height < p.y + p.height) {
+                    player.y = p.y - player.height;
+                    player.dy = JUMP_FORCE; // 발판에 닿으면 자동 점프
+                }
+            });
+        }
+        
+        // 화면 좌우 경계
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvasWidth) player.x = canvasWidth - player.width;
+
+        // 카메라 스크롤
+        if (player.y < cameraY + canvasHeight / 2) {
+            cameraY = player.y - canvasHeight / 2;
+        }
+
+        // 점수 업데이트
+        if (player.y < highestY) {
+            highestY = player.y;
+            score = Math.floor((canvasHeight - 80 - highestY) / 10);
+        }
+
+        // 플랫폼 관리
+        // 화면 위로 새 플랫폼 생성
+        const highestPlatform = platforms.reduce((prev, curr) => (prev.y < curr.y ? prev : curr));
+        if (highestPlatform.y > cameraY - 100) {
+            generatePlatform(highestPlatform.y - (Math.random() * 60 + 80));
+        }
+        // 화면 아래로 사라진 플랫폼 제거
+        platforms = platforms.filter(p => p.y < cameraY + canvasHeight + 50);
+
+
+        // 애니메이션
+        player.frameCount++;
+        if (player.dy < 0) player.animationState = 'jumping';
+        else if (keys.left || keys.right) player.animationState = 'running';
+        else player.animationState = 'idle';
+        if (player.frameCount % player.animationSpeed === 0) {
+            player.animationFrame = (player.animationFrame + 1) % 20;
+        }
+
+        // 게임 오버 조건
+        if (player.y > cameraY + canvasHeight) {
+            gameState = 'gameOver';
+        }
+    }
+
+    // --- 메인 게임 루프 ---
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // 게임 시작
+    initGame();
+    gameLoop();
+</script>
+
 </body>
 </html>
+
