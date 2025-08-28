@@ -6,418 +6,291 @@
     <title>무한의 탑</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Reset styles for a full-screen experience */
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Malgun Gothic', sans-serif;
+        :root {
+            --primary-accent: #a252ff; --secondary-accent: #4f46e5; --text-light: #e5e7eb;
+            --text-dark: #9ca3af; --bg-dark-1: #111827; --bg-dark-2: rgba(31, 41, 55, 0.5);
+            --border-color: rgba(255, 255, 255, 0.1); --error-color: #f87171;
         }
-        /* Game container now takes up the full screen */
-        #game-wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            max-width: 500px; /* Max width for larger screens */
-            margin: 0 auto; /* Center the game */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-            /* Prevents blue highlight on touch */
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* Score display directly on the canvas area */
-        #score-display {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            font-size: 28px;
-            font-weight: bold;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-            z-index: 10;
-            display: none; /* Hidden until game starts */
-        }
-        /* Common style for all overlay screens (start, game over) */
-        .overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(5px);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            z-index: 20;
-            cursor: pointer;
-            /* STABILITY FIX: Make overlay invisible by default, not display:none, to prevent layout shifts */
-            opacity: 1;
-            visibility: visible;
-            transition: opacity 0.5s, visibility 0.5s;
-        }
-        .overlay.hidden {
-            opacity: 0;
-            visibility: hidden;
-        }
-        .overlay h2 {
-            font-size: 3.5rem;
-            margin: 0 0 20px 0;
-            text-shadow: 0 0 20px #a252ff, 0 0 30px #a252ff;
-            font-weight: 600;
-            letter-spacing: 2px;
-        }
-        .overlay .title-char {
-            display: inline-block;
-        }
-        .overlay p {
-            font-size: 1.5rem;
-            margin: 20px 0;
-        }
-        .overlay .prompt-text {
-            font-size: 1.1rem;
-            margin-top: 40px;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-        /* Unified button style */
-        .btn-style {
-            /* STABILITY FIX: Let anime.js handle transform and opacity for intro animation */
-            padding: 15px 30px;
-            width: 80%;
-            max-width: 300px;
-            margin-top: 15px;
-            background: linear-gradient(45deg, #4f46e5, #c026d3);
-            color: white;
-            text-decoration: none;
-            border-radius: 50px;
-            font-weight: bold;
-            box-shadow: 0 5px 20px rgba(99, 60, 235, 0.5);
-            cursor: pointer;
-            border: none;
-            font-size: 1rem;
-            box-sizing: border-box;
-            /* ANIMATION FIX: Transition only properties for hover, not all properties */
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .btn-style:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(99, 60, 235, 0.7);
-        }
-        #gameOverScreen {
-            cursor: default; /* No cursor pointer on the overlay itself */
-        }
-        #logo {
-            width: 150px;
-            height: 150px;
-            margin-bottom: 20px;
-        }
-        /* ANIMATION FIX: A simple class to hide elements before anime.js takes over */
-        .is-hidden {
-            opacity: 0;
-        }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
+        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); }
+        canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .overlay.hidden { opacity: 0; visibility: hidden; }
+        .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
+        #logo { width: 120px; height: 120px; margin-bottom: 20px; }
+        .is-hidden { opacity: 0; }
+
+        /* --- 게임 오버 화면 --- */
+        #gameOverScreen { justify-content: flex-start; padding-top: 6vh; }
+        #finalScore { font-size: 2.5rem; font-weight: 700; color: #facc15; }
+        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 20px; }
+
+        .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
+        .content-box { width: 100%; background-color: var(--bg-dark-2); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; box-sizing: border-box; text-align: left; }
+        .content-box h3 { font-size: 1rem; font-weight: 600; margin: 0 0 10px 0; color: var(--text-light); }
+        
+        #ranking-list { list-style: none; padding: 0; margin: 0; }
+        #ranking-list li { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 0.9rem; }
+        .rank-name { color: var(--text-light); }
+        .rank-score { font-weight: 600; color: #facc15; }
+
+        #guestbook-entries { max-height: 120px; overflow-y: auto; }
+        .guestbook-entry { padding: 8px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
+        .guestbook-entry:last-child { border-bottom: none; }
+        .guestbook-entry p { margin: 0; line-height: 1.5; word-wrap: break-word; }
+        .guestbook-entry strong { color: var(--primary-accent); font-weight: 600; }
+        .guestbook-entry .score { font-size: 0.75rem; color: var(--text-dark); margin-left: 5px; }
+        
+        #more-guestbook-btn { background: none; border: 1px solid var(--border-color); color: var(--text-dark); width: 100%; padding: 8px; border-radius: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; }
+        #more-guestbook-btn:hover { background-color: var(--border-color); }
+        #more-guestbook-btn.hidden { display: none; }
+
+        #guestbook-form { margin-top: 15px; }
+        .input-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        #guestbook-name { flex: 1 1 80px; }
+        #guestbook-message { flex: 1 1 120px; }
+        #guestbook-form input { background-color: var(--bg-dark-1); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; color: var(--text-light); font-size: 0.9rem; min-width: 0; }
+        #guestbook-submit { background: linear-gradient(45deg, var(--secondary-accent), var(--primary-accent)); border: none; border-radius: 8px; padding: 10px 15px; color: white; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+        #guestbook-submit:disabled { background: #374151; cursor: not-allowed; }
+        #guestbook-error { color: var(--error-color); font-size: 0.8rem; height: 1em; text-align: left; margin-top: 5px; }
+
+        .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 10px; margin-top: 15px; }
+        .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; }
+        .btn-style:hover { background-color: var(--border-color); }
     </style>
 </head>
 <body>
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
-    <div id="score-display">점수: 0</div>
+    <div id="score-display">0</div>
     
     <div id="startScreen" class="overlay">
-        <svg id="logo" class="is-hidden" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 5 L70 35 L50 30 L30 35 Z" fill="url(#grad1)"/>
-            <path d="M40 35 L60 35 L65 95 L35 95 Z" fill="url(#grad2)"/>
-            <defs>
-                <linearGradient id="grad1" x1="50" y1="5" x2="50" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#a252ff"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
-                <linearGradient id="grad2" x1="50" y1="35" x2="50" y2="95" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#0f0c29"/></linearGradient>
-            </defs>
-        </svg>
+        <svg id="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M50 5 L70 35 L50 30 L30 35 Z" fill="url(#grad1)"/><path d="M40 35 L60 35 L65 95 L35 95 Z" fill="url(#grad2)"/><defs><linearGradient id="grad1" x1="50" y1="5" x2="50" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#a252ff"/><stop offset="1" stop-color="#4f46e5"/></linearGradient><linearGradient id="grad2" x1="50" y1="35" x2="50" y2="95" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#0f0c29"/></linearGradient></defs></svg>
         <h2 id="main-title">무한의 탑</h2>
-        <p class="prompt-text is-hidden">화면을 터치하여 시작</p>
     </div>
 
     <div id="gameOverScreen" class="overlay hidden">
-        <h2 class="is-hidden">게임 오버</h2>
-        <p class="is-hidden">최종 점수: <span id="finalScore">0</span></p>
-        <button id="restartButton" class="btn-style is-hidden">게임 다시 시작</button>
-        <a href="https://www.threads.net/@ilovemom_2026" target="_blank" class="btn-style is-hidden">개발자 Threads 방문하기</a>
+        <p id="finalScoreLabel" class="is-hidden">최종 점수</p>
+        <p id="finalScore" class="is-hidden">0</p>
+        
+        <div class="content-wrapper is-hidden">
+            <div id="ranking-container" class="content-box">
+                <h3>명예의 전당</h3>
+                <ol id="ranking-list"><p>랭킹을 불러오는 중...</p></ol>
+            </div>
+
+            <div id="guestbook-container" class="content-box">
+                <h3>방명록</h3>
+                <div id="guestbook-entries"><p>방명록을 불러오는 중...</p></div>
+                <button id="more-guestbook-btn" class="hidden">더보기</button>
+                <form id="guestbook-form">
+                    <div class="input-group">
+                        <input type="text" id="guestbook-name" placeholder="이름" maxlength="20" required>
+                        <input type="text" id="guestbook-message" placeholder="한마디" maxlength="150" required>
+                        <button type="submit" id="guestbook-submit">등록</button>
+                    </div>
+                    <div id="guestbook-error"></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="button-group is-hidden">
+            <button id="restartButton" class="btn-style">다시 시작</button>
+        </div>
     </div>
 </div>
 
 <script>
     window.addEventListener('DOMContentLoaded', () => {
+        // --- Supabase 설정 (새로운 키로 교체) ---
+        const SUPABASE_URL = 'https://fzfnjtlzovbpbglvkroh.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6Zm5qdGx6b3ZicGJnbHZrcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4OTcyMjEsImV4cCI6MjA3MTQ3MzIyMX0.yg43GbdVBPAzaghmERNGxRu9dte3bcpWTWjrOa0p55I';
+        let supabase = null;
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } else {
+                console.error("Supabase 라이브러리가 로드되지 않았습니다.");
+            }
+        } catch (e) {
+            console.error("Supabase 초기화 오류:", e);
+        }
+
         // --- DOM Elements ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const wrapper = document.getElementById('game-wrapper');
-        const scoreDisplay = document.getElementById('score-display');
-        const startScreen = document.getElementById('startScreen');
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        const finalScoreEl = document.getElementById('finalScore');
-        const restartButton = document.getElementById('restartButton');
-        const mainTitle = document.getElementById('main-title');
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display'); const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen'); const finalScoreEl = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton'); const rankingList = document.getElementById('ranking-list');
+        const guestbookEntries = document.getElementById('guestbook-entries'); const guestbookForm = document.getElementById('guestbook-form');
+        const guestbookName = document.getElementById('guestbook-name'); const guestbookMessage = document.getElementById('guestbook-message');
+        const guestbookSubmit = document.getElementById('guestbook-submit'); const guestbookError = document.getElementById('guestbook-error');
+        const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
 
         // --- Game State & Constants ---
-        let canvasWidth, canvasHeight;
-        let gameState = 'start'; // 'start', 'playing', 'gameOver'
-        const GRAVITY = 0.5;
-        const JUMP_FORCE = -12;
-        const BASE_PLAYER_SPEED = 6;
-        const SPEED_TIER_2 = 7.5;
-        const SPEED_TIER_3 = 9;
+        let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
+        let guestbookLimit = 3;
+        const keys = { left: false, right: false }; const GRAVITY = 0.5, JUMP_FORCE = -12;
         
-        let player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0;
-        const keys = { left: false, right: false };
-
         // --- Audio ---
-        let jumpSound, gameOverSound, crumbleSound, isAudioReady = false;
+        let isAudioReady = false; let jumpSound, gameOverSound, crumbleSound;
+        function initAudio() { if(isAudioReady) return; Tone.start().then(() => { jumpSound = new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.1,sustain:0.05,release:0.1}}).toDestination(); gameOverSound = new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.1,decay:0.5,sustain:0.1,release:0.5}}).toDestination(); crumbleSound = new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1}}).toDestination(); isAudioReady = true; }); }
 
-        function initAudio() {
-            if (isAudioReady) return;
-            Tone.start();
-            jumpSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination();
-            gameOverSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.1, release: 0.5 } }).toDestination();
-            crumbleSound = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.1 } }).toDestination();
-            isAudioReady = true;
-        }
+        // --- Initialization & Game Loop ---
+        function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';}
+        function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
+        function update(){if(gameState!=='playing'||!player)return;
+            // 점수가 올라갈수록 속도 증가 (기본 6, 최대 12)
+            const speed = Math.min(6 + score * 0.005, 12); 
+            player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}player.dy+=GRAVITY;player.x+=player.dx;player.y+=player.dy;if(player.dy>0){platforms.forEach(p=>{if(player.x<p.x+p.width&&player.x+player.width>p.x&&player.y+player.height>p.y&&player.y+player.height<p.y+p.height+10){player.y=p.y-player.height;player.dy=JUMP_FORCE;if(isAudioReady)jumpSound.triggerAttackRelease("C5","0.05");if(p.type==='crumbling'&&p.state==='intact'){p.state='shaking';if(isAudioReady)crumbleSound.triggerAttackRelease("0.1");}if(p.type==='moving')player.x+=p.dx;}});}if(player.x<-player.width)player.x=canvas.width;if(player.x>canvas.width)player.x=-player.width;if(player.y<cameraY+canvas.height/2.5)cameraY=player.y-canvas.height/2.5;if(player.y<highestY){highestY=player.y;score=Math.floor((canvas.height-80-highestY)/10);scoreDisplay.innerText=score;}platforms.forEach(p=>{if(p.type==='moving'){p.x+=p.dx;if(p.x<0||p.x+p.width>canvas.width)p.dx*=-1;}if(p.state==='shaking')p.alpha=Math.max(0,p.alpha-0.02);});if(platforms.length>0&&platforms[platforms.length-1].y>cameraY-100){generatePlatform(platforms[platforms.length-1].y-(Math.random()*60+80));}platforms=platforms.filter(p=>p.y<cameraY+canvas.height+50&&p.alpha>0);player.frameCount++;if(player.dy<0)player.animationState='jumping';else if(keys.left||keys.right)player.animationState='running';else player.animationState='idle';if(player.frameCount%player.animationSpeed===0)player.animationFrame=(player.animationFrame+1)%20;if(player.y>cameraY+canvas.height)endGame();}
+        function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);if(gameState!=='playing'||!player)return;ctx.save();ctx.translate(0,-cameraY);stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});drawPlayer();ctx.restore();}
+        function gameLoop(){update();draw();requestAnimationFrame(gameLoop);}
+        function drawPlayer(){if(!player)return;ctx.save();ctx.fillStyle='#f7f7f7';const cX=player.x+player.width/2,cY=player.y+player.height/2;ctx.translate(cX,cY);if(player.direction==='left')ctx.scale(-1,1);const anim=player.animationState;if(anim==='jumping')drawJumpingFrame();else if(anim==='running')(player.animationFrame<10)?drawRunningFrame1():drawRunningFrame2();else drawIdleFrame();ctx.restore();}
+        function drawCharacterBody(a1,a2,l1,l2){const tX=-player.width/4,tY=-player.height/2;ctx.beginPath();ctx.arc(0,tY,12,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(tX,tY+10);ctx.lineTo(tX+20,tY+10);ctx.lineTo(tX+15,tY+45);ctx.lineTo(tX+5,tY+45);ctx.closePath();ctx.fill();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a1);ctx.fillRect(-3,0,6,25);ctx.restore();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a2);ctx.fillStyle='#ccc';ctx.fillRect(-3,0,6,25);ctx.restore();ctx.fillStyle='#f7f7f7';ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l1);ctx.fillRect(-4,0,8,30);ctx.restore();ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l2);ctx.fillStyle='#ccc';ctx.fillRect(-4,0,8,30);ctx.restore();}
+        function drawIdleFrame(){drawCharacterBody(0.1,-0.1,0.1,-0.1);}function drawRunningFrame1(){drawCharacterBody(Math.PI/4,-Math.PI/4,Math.PI/6,-Math.PI/6);}function drawRunningFrame2(){drawCharacterBody(-Math.PI/4,Math.PI/4,-Math.PI/6,Math.PI/6);}function drawJumpingFrame(){drawCharacterBody(Math.PI/3,-Math.PI/3,Math.PI/5,-Math.PI/5);}
 
-        // --- Initialization ---
-        function setCanvasSize() {
-            const rect = wrapper.getBoundingClientRect();
-            canvas.width = rect.width; canvas.height = rect.height;
-            canvasWidth = canvas.width; canvasHeight = canvas.height;
-        }
-
-        function resetGame() {
-            keys.left = false; keys.right = false;
-            scoreDisplay.style.display = 'block';
-            player = {
-                x: canvasWidth / 2 - 20, y: canvasHeight - 80, width: 40, height: 70, dx: 0, dy: 0,
-                direction: 'right', animationState: 'idle', frameCount: 0, animationFrame: 0, animationSpeed: 5,
-            };
-            platforms = []; stars = []; cameraY = 0; score = 0;
-            highestY = player.y;
-            scoreDisplay.innerText = `점수: 0`;
-            platforms.push({ x: 0, y: canvasHeight - 40, width: canvasWidth, height: 40, type: 'static' });
-            for (let i = 1; i < 15; i++) generatePlatform(canvasHeight - i * 100);
-            for (let i = 0; i < 100; i++) {
-                stars.push({ x: Math.random() * canvasWidth, y: Math.random() * canvasHeight * 2, radius: Math.random() * 1.5, alpha: Math.random() });
-            }
-            gameState = 'playing';
-        }
-        
-        function generatePlatform(yPos) {
-            const width = Math.random() * 80 + 80;
-            const x = Math.random() * (canvasWidth - width);
-            let type = 'static', dx = 0;
-            const rand = Math.random();
-            if (score > 200 && rand < 0.20) type = 'crumbling';
-            else if (score > 50 && rand < 0.25) {
-                type = 'moving';
-                dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1);
-            }
-            platforms.push({ x, y: yPos, width, height: 20, type, dx, state: 'intact', alpha: 1 });
-        }
-
-        // --- Game Loop Functions ---
-        function update() {
-            if (gameState !== 'playing' || !player) return;
-            let currentPlayerSpeed = score > 800 ? SPEED_TIER_3 : (score > 300 ? SPEED_TIER_2 : BASE_PLAYER_SPEED);
-            player.dx = 0;
-            if (keys.left) { player.dx = -currentPlayerSpeed; player.direction = 'left'; }
-            if (keys.right) { player.dx = currentPlayerSpeed; player.direction = 'right'; }
-            player.dy += GRAVITY; player.x += player.dx; player.y += player.dy;
-            if (player.dy > 0) {
-                platforms.forEach(p => {
-                    if (player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 10) {
-                        player.y = p.y - player.height; player.dy = JUMP_FORCE;
-                        if (isAudioReady) jumpSound.triggerAttackRelease("C5", "0.05");
-                        if (p.type === 'crumbling' && p.state === 'intact') {
-                            p.state = 'shaking';
-                            if (isAudioReady) crumbleSound.triggerAttackRelease("0.1");
-                        }
-                        if (p.type === 'moving') player.x += p.dx;
-                    }
-                });
-            }
-            if (player.x < -player.width) player.x = canvasWidth;
-            if (player.x > canvasWidth) player.x = -player.width;
-            if (player.y < cameraY + canvasHeight / 2.5) cameraY = player.y - canvasHeight / 2.5;
-            if (player.y < highestY) {
-                highestY = player.y;
-                score = Math.floor((canvasHeight - 80 - highestY) / 10);
-                scoreDisplay.innerText = `점수: ${score}`;
-            }
-            platforms.forEach(p => {
-                if (p.type === 'moving') {
-                    p.x += p.dx;
-                    if (p.x < 0 || p.x + p.width > canvasWidth) p.dx *= -1;
-                }
-                if (p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02);
-            });
-            if (platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100) {
-                generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));
-            }
-            platforms = platforms.filter(p => p.y < cameraY + canvasHeight + 50 && p.alpha > 0);
-            player.frameCount++;
-            if (player.dy < 0) player.animationState = 'jumping';
-            else if (keys.left || keys.right) player.animationState = 'running';
-            else player.animationState = 'idle';
-            if (player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
-            if (player.y > cameraY + canvasHeight) endGame();
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            if (gameState !== 'playing' || !player) return;
-            ctx.save();
-            ctx.translate(0, -cameraY);
-            stars.forEach(s => {
-                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
-                ctx.beginPath(); ctx.arc(s.x, s.y + cameraY * 0.8, s.radius, 0, Math.PI * 2); ctx.fill();
-            });
-            platforms.forEach(p => {
-                ctx.globalAlpha = p.alpha;
-                const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
-                if (p.type === 'moving') { grad.addColorStop(0, '#ff8c42'); grad.addColorStop(1, '#ff5e57'); } 
-                else if (p.state === 'shaking') { grad.addColorStop(0, '#b0a090'); grad.addColorStop(1, '#8a7a6a'); }
-                else { grad.addColorStop(0, '#6c5b7b'); grad.addColorStop(1, '#355c7d'); }
-                ctx.fillStyle = grad;
-                ctx.fillRect(p.x + (p.state === 'shaking' ? (Math.random() - 0.5) * 4 : 0), p.y, p.width, p.height);
-                ctx.globalAlpha = 1;
-            });
-            drawPlayer();
-            ctx.restore();
-        }
-
-        function gameLoop() {
-            update(); draw(); requestAnimationFrame(gameLoop);
-        }
-
-        // --- State Transition Functions ---
-        function startGame() {
-            initAudio();
-            startScreen.classList.add('hidden');
-            // Wait for fade out transition to finish before resetting game
-            setTimeout(resetGame, 500);
-        }
-
+        // --- State Transition ---
+        function startGame() { initAudio(); startScreen.classList.add('hidden'); setTimeout(resetGame, 500); }
         function endGame() {
-            gameState = 'gameOver';
-            if (isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
-            scoreDisplay.style.display = 'none';
-            gameOverScreen.classList.remove('hidden');
+            gameState = 'gameOver'; finalGameScore = score;
+            if(isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
+            scoreDisplay.style.display = 'none'; gameOverScreen.classList.remove('hidden');
             
             const scoreObj = { value: 0 };
+            anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
             
-            // ANIMATION FIX: Use a spring animation for a more natural feel.
-            // Set initial state directly in the animation call.
-            anime({
-                targets: '#gameOverScreen > *',
-                translateY: (el, i) => [50, 0],
-                opacity: [0, 1],
-                delay: anime.stagger(100, {start: 300}),
-                // Use a spring physics based easing for a natural bounce
-                easing: 'spring(1, 80, 10, 0)',
-            });
+            const tl = anime.timeline({ easing: 'easeOutExpo', duration: 750 });
+            tl.add({ targets: ['#finalScoreLabel', '#finalScore'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) })
+              .add({ targets: ['.content-wrapper', '.button-group'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) }, '-=500');
 
-            anime({
-                targets: scoreObj, value: score, round: 1, duration: 1200, easing: 'easeOutCubic',
-                update: () => { finalScoreEl.innerText = scoreObj.value; }
-            });
+            loadRankingAndGuestbook();
         }
-
         function restartGame() {
             gameOverScreen.classList.add('hidden');
-            // Wait for fade out transition to finish before resetting game
+            // Hide elements immediately for a smoother transition out
+            document.querySelectorAll('#gameOverScreen .content-wrapper, #gameOverScreen .button-group, #finalScoreLabel, #finalScore').forEach(el => {
+                el.style.opacity = 0;
+            });
             setTimeout(() => {
-                // BUG FIX: Hide elements again so they can be animated in next time.
-                document.querySelectorAll('#gameOverScreen > *').forEach(el => el.classList.add('is-hidden'));
+                guestbookLimit = 3; // Reset guestbook limit
                 resetGame();
             }, 500);
         }
         
-        // --- Drawing Player ---
-        function drawPlayer() {
-            if (!player) return;
-            ctx.save();
-            ctx.fillStyle = '#f7f7f7';
-            const centerX = player.x + player.width / 2;
-            const centerY = player.y + player.height / 2;
-            ctx.translate(centerX, centerY);
-            if (player.direction === 'left') ctx.scale(-1, 1);
-            const anim = player.animationState;
-            if (anim === 'jumping') drawJumpingFrame();
-            else if (anim === 'running') (player.animationFrame < 10) ? drawRunningFrame1() : drawRunningFrame2();
-            else drawIdleFrame();
-            ctx.restore();
+        // --- Supabase Functions ---
+        async function loadRankingAndGuestbook() {
+            if (!supabase) {
+                const errorMsg = `<p style="color: var(--error-color);">서버에 연결할 수 없습니다.</p>`;
+                rankingList.innerHTML = errorMsg;
+                guestbookEntries.innerHTML = errorMsg;
+                return;
+            }
+            fetchRankings();
+            fetchGuestbookEntries();
         }
-        function drawCharacterBody(a1, a2, l1, l2) {
-            const tX = -player.width / 4, tY = -player.height / 2;
-            ctx.beginPath(); ctx.arc(0, tY, 12, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(tX, tY + 10); ctx.lineTo(tX + 20, tY + 10); ctx.lineTo(tX + 15, tY + 45); ctx.lineTo(tX + 5, tY + 45); ctx.closePath(); ctx.fill();
-            ctx.save(); ctx.translate(tX + 10, tY + 20); ctx.rotate(a1); ctx.fillRect(-3, 0, 6, 25); ctx.restore();
-            ctx.save(); ctx.translate(tX + 10, tY + 20); ctx.rotate(a2); ctx.fillStyle = '#ccc'; ctx.fillRect(-3, 0, 6, 25); ctx.restore();
-            ctx.fillStyle = '#f7f7f7';
-            ctx.save(); ctx.translate(tX + 10, tY + 45); ctx.rotate(l1); ctx.fillRect(-4, 0, 8, 30); ctx.restore();
-            ctx.save(); ctx.translate(tX + 10, tY + 45); ctx.rotate(l2); ctx.fillStyle = '#ccc'; ctx.fillRect(-4, 0, 8, 30); ctx.restore();
+
+        async function fetchRankings() {
+            try {
+                const { data, error } = await supabase.from('guestbook').select('name, score').order('score', { ascending: false }).limit(5);
+                if (error) throw error;
+                rankingList.innerHTML = '';
+                if (data.length === 0) {
+                    rankingList.innerHTML = '<p>아직 등록된 기록이 없습니다.</p>';
+                } else {
+                    data.forEach((entry, index) => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="rank-name">${index + 1}. ${escapeHtml(entry.name)}</span> <span class="rank-score">${entry.score.toLocaleString()}</span>`;
+                        rankingList.appendChild(li);
+                    });
+                }
+            } catch (error) { console.error('랭킹 로딩 오류:', error); rankingList.innerHTML = `<p style="color: var(--error-color);">랭킹 로딩 실패: ${error.message}</p>`; }
         }
-        function drawIdleFrame() { drawCharacterBody(0.1, -0.1, 0.1, -0.1); }
-        function drawRunningFrame1() { drawCharacterBody(Math.PI / 4, -Math.PI / 4, Math.PI / 6, -Math.PI / 6); }
-        function drawRunningFrame2() { drawCharacterBody(-Math.PI / 4, Math.PI / 4, -Math.PI / 6, Math.PI / 6); }
-        function drawJumpingFrame() { drawCharacterBody(Math.PI / 3, -Math.PI / 3, Math.PI / 5, -Math.PI / 5); }
+
+        async function fetchGuestbookEntries() {
+            try {
+                const { data, error, count } = await supabase.from('guestbook').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(guestbookLimit);
+                if (error) throw error;
+                
+                guestbookEntries.innerHTML = '';
+                if (data.length === 0) {
+                    guestbookEntries.innerHTML = '<p>첫 방명록을 남겨주세요.</p>';
+                } else {
+                    data.forEach(entry => {
+                        const div = document.createElement('div');
+                        div.className = 'guestbook-entry';
+                        div.innerHTML = `<p><strong>${escapeHtml(entry.name)}:</strong> ${escapeHtml(entry.message)}<span class="score">(${entry.score.toLocaleString()}점)</span></p>`;
+                        guestbookEntries.appendChild(div);
+                    });
+                }
+                if (count > guestbookLimit) {
+                    moreGuestbookBtn.classList.remove('hidden');
+                } else {
+                    moreGuestbookBtn.classList.add('hidden');
+                }
+            } catch (error) { console.error('방명록 로딩 오류:', error); guestbookEntries.innerHTML = `<p style="color: var(--error-color);">방명록 로딩 실패: ${error.message}</p>`; }
+        }
+
+        async function handleGuestbookSubmit(e) {
+            e.preventDefault();
+            if (!supabase) return;
+            const lastPostTime = localStorage.getItem('lastPostTime');
+            if (lastPostTime && Date.now() - lastPostTime < 30000) {
+                showError(`${Math.ceil((30000 - (Date.now() - lastPostTime)) / 1000)}초 후 등록 가능합니다.`);
+                return;
+            }
+            const name = guestbookName.value.trim();
+            const message = guestbookMessage.value.trim();
+            if (!name || !message) { showError('이름과 메시지를 입력해주세요.'); return; }
+            guestbookSubmit.disabled = true; guestbookSubmit.textContent = '...';
+            try {
+                const { error } = await supabase.from('guestbook').insert([{ name, message, score: finalGameScore }]);
+                if (error) throw error;
+                guestbookForm.reset();
+                localStorage.setItem('lastPostTime', Date.now());
+                guestbookLimit = 3;
+                loadRankingAndGuestbook();
+            } catch (error) { console.error('방명록 등록 오류:', error); showError(`등록 실패: ${error.message}`); } 
+            finally { guestbookSubmit.disabled = false; guestbookSubmit.textContent = '등록'; }
+        }
+        
+        function showError(message) { guestbookError.textContent = message; setTimeout(() => { guestbookError.textContent = ''; }, 3000); }
+        function escapeHtml(str) { return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
 
         // --- Event Listeners & Main Setup ---
         function setupListeners() {
             window.addEventListener('resize', setCanvasSize, { passive: true });
             startScreen.addEventListener('click', startGame);
             restartButton.addEventListener('click', restartGame);
-            const handleMoveStart = (x) => {
-                if (gameState !== 'playing') return;
-                const midPoint = canvas.getBoundingClientRect().left + canvasWidth / 2;
-                keys.left = x < midPoint; keys.right = x >= midPoint;
-            };
-            const handleMoveEnd = () => { if (gameState === 'playing') { keys.left = false; keys.right = false; } };
-            canvas.addEventListener('touchstart', e => { e.preventDefault(); handleMoveStart(e.touches[0].clientX); }, { passive: false });
-            canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMoveStart(e.touches[0].clientX); }, { passive: false });
-            canvas.addEventListener('touchend', e => { e.preventDefault(); handleMoveEnd(); }, { passive: false });
-            document.addEventListener('keydown', e => {
-                if (gameState !== 'playing') return;
-                if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
-                if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
-            });
-            document.addEventListener('keyup', e => {
-                if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
-                if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
-            });
+            
+            if (supabase) {
+                guestbookForm.addEventListener('submit', handleGuestbookSubmit);
+                moreGuestbookBtn.addEventListener('click', () => {
+                    guestbookLimit += 5;
+                    fetchGuestbookEntries();
+                });
+            }
+            const handleMoveStart=(x)=>{if(gameState!=='playing')return;const mid=canvas.getBoundingClientRect().left+canvas.width/2;keys.left=x<mid;keys.right=x>=mid;};
+            const handleMoveEnd=()=>{if(gameState==='playing'){keys.left=false;keys.right=false;}};
+            canvas.addEventListener('mousedown', e => handleMoveStart(e.clientX));
+            canvas.addEventListener('mouseup', handleMoveEnd);
+            canvas.addEventListener('mouseleave', handleMoveEnd);
+            canvas.addEventListener('mousemove', e => { if (e.buttons === 1) handleMoveStart(e.clientX); });
+            canvas.addEventListener('touchstart',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
+            canvas.addEventListener('touchmove',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
+            canvas.addEventListener('touchend',e=>{e.preventDefault();handleMoveEnd();},{passive:false});
+            document.addEventListener('keydown',e=>{if(gameState!=='playing')return;if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=true;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=true;});
+            document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=false;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=false;});
         }
 
         function init() {
             setCanvasSize();
             setupListeners();
+            const mainTitle = document.getElementById('main-title');
             mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
-            anime({
-                targets: '#startScreen > *:not(h2)',
-                translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100, {start: 500}),
-                easing: 'easeOutExpo', complete: () => {
-                    anime({ targets: '.prompt-text', opacity: [1, 0.7, 1], duration: 1500, loop: true, direction: 'alternate', easing: 'easeInOutSine' });
-                }
-            });
+            anime({ targets: '#logo', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
             anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
             gameLoop();
         }
@@ -428,4 +301,3 @@
 
 </body>
 </html>
-
