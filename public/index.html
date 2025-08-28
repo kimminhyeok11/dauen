@@ -153,7 +153,8 @@
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
-        const keys = { left: false, right: false }; const GRAVITY = 0.5, JUMP_FORCE = -12;
+        // 전체 속도 1.3배 상향 조정
+        const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
         // --- Audio ---
         let isAudioReady = false; let jumpSound, gameOverSound, crumbleSound;
@@ -165,15 +166,56 @@
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
         function update(deltaTime){if(gameState!=='playing'||!player)return;
-            // 기본 속도 9, 최대 16으로 상향 조정
-            const speed = Math.min(9 + score * 0.007, 16); 
+            // 전체 속도 1.3배 상향 조정
+            const speed = Math.min(11.7 + score * 0.0091, 20.8); 
             player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
-            player.dy+=GRAVITY*deltaTime;player.x+=player.dx*deltaTime;player.y+=player.dy*deltaTime;
-            if(player.dy>0){platforms.forEach(p=>{if(player.x<p.x+p.width&&player.x+player.width>p.x&&player.y+player.height>p.y&&player.y+player.height<p.y+p.height+10){player.y=p.y-player.height;player.dy=JUMP_FORCE;if(isAudioReady)jumpSound.triggerAttackRelease("C5","0.05");if(p.type==='crumbling'&&p.state==='intact'){p.state='shaking';if(isAudioReady)crumbleSound.triggerAttackRelease("0.1");}if(p.type==='moving')player.x+=p.dx*deltaTime;}});}
-            if(player.x<-player.width)player.x=canvas.width;if(player.x>canvas.width)player.x=-player.width;if(player.y<cameraY+canvas.height/2.5)cameraY=player.y-canvas.height/2.5;if(player.y<highestY){highestY=player.y;score=Math.floor((canvas.height-80-highestY)/10);scoreDisplay.innerText=score;}
-            platforms.forEach(p=>{if(p.type==='moving'){p.x+=p.dx*deltaTime;if(p.x<0||p.x+p.width>canvas.width)p.dx*=-1;}if(p.state==='shaking')p.alpha=Math.max(0,p.alpha-0.02*deltaTime);});
-            if(platforms.length>0&&platforms[platforms.length-1].y>cameraY-100){generatePlatform(platforms[platforms.length-1].y-(Math.random()*60+80));}
-            platforms=platforms.filter(p=>p.y<cameraY+canvas.height+50&&p.alpha>0);player.frameCount++;if(player.dy<0)player.animationState='jumping';else if(keys.left||keys.right)player.animationState='running';else player.animationState='idle';if(player.frameCount%player.animationSpeed===0)player.animationFrame=(player.animationFrame+1)%20;if(player.y>cameraY+canvas.height)endGame();}
+            
+            const currentJumpForce = JUMP_FORCE;
+            
+            player.dy += GRAVITY * deltaTime;
+            player.x += player.dx * deltaTime;
+            player.y += player.dy * deltaTime;
+            
+            if(player.dy > 0){
+                platforms.forEach(p => {
+                    if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
+                        player.y = p.y - player.height;
+                        player.dy = currentJumpForce;
+                        if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05");
+                        if(p.type === 'crumbling' && p.state === 'intact'){
+                            p.state = 'shaking';
+                            if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");
+                        }
+                        if(p.type === 'moving') player.x += p.dx * deltaTime;
+                    }
+                });
+            }
+            if(player.x < -player.width) player.x = canvas.width;
+            if(player.x > canvas.width) player.x = -player.width;
+            if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
+            if(player.y < highestY){
+                highestY = player.y;
+                score = Math.floor((canvas.height - 80 - highestY) / 10);
+                scoreDisplay.innerText = score;
+            }
+            platforms.forEach(p => {
+                if(p.type === 'moving'){
+                    p.x += p.dx * deltaTime;
+                    if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;
+                }
+                if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);
+            });
+            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){
+                generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));
+            }
+            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
+            player.frameCount++;
+            if(player.dy < 0) player.animationState = 'jumping';
+            else if(keys.left || keys.right) player.animationState = 'running';
+            else player.animationState = 'idle';
+            if(player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
+            if(player.y > cameraY + canvas.height) endGame();
+        }
         
         function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);if(gameState!=='playing'||!player)return;ctx.save();ctx.translate(0,-cameraY);stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});drawPlayer();ctx.restore();}
         
