@@ -23,10 +23,23 @@
         #logo { width: 120px; height: 120px; margin-bottom: 20px; }
         .is-hidden { opacity: 0; }
 
+        /* --- 시작 화면 안내 --- */
+        #instructions { margin-top: 30px; background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .control-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .control-info:not(:last-child) { margin-bottom: 15px; }
+        .control-info span { font-size: 1.5rem; }
+        .control-info p { margin: 0; font-size: 0.9rem; color: var(--text-dark); }
+        
+        /* --- 모바일 터치 가이드 --- */
+        .touch-indicator { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: rgba(255, 255, 255, 0.2); z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.3s; user-select: none; }
+        .touch-indicator.visible { opacity: 1; }
+        #touch-left { left: 20px; }
+        #touch-right { right: 20px; }
+
         /* --- 게임 오버 화면 --- */
-        #gameOverScreen { justify-content: flex-start; padding-top: 6vh; }
+        #gameOverScreen { justify-content: flex-start; padding-top: 4vh; }
         #finalScore { font-size: 2.5rem; font-weight: 700; color: #facc15; }
-        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 20px; }
+        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 15px; }
 
         .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
         .content-box { width: 100%; background-color: var(--bg-dark-2); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; box-sizing: border-box; text-align: left; }
@@ -58,7 +71,7 @@
         #guestbook-error { color: var(--error-color); font-size: 0.8rem; height: 1em; text-align: left; margin-top: 5px; }
 
         .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 10px; margin-top: 15px; }
-        .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; }
+        .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; text-align: center; }
         .btn-style:hover { background-color: var(--border-color); }
     </style>
 </head>
@@ -66,10 +79,16 @@
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
     <div id="score-display">0</div>
+    <div id="touch-left" class="touch-indicator">&lt;</div>
+    <div id="touch-right" class="touch-indicator">&gt;</div>
     
     <div id="startScreen" class="overlay">
         <svg id="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M50 5 L70 35 L50 30 L30 35 Z" fill="url(#grad1)"/><path d="M40 35 L60 35 L65 95 L35 95 Z" fill="url(#grad2)"/><defs><linearGradient id="grad1" x1="50" y1="5" x2="50" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#a252ff"/><stop offset="1" stop-color="#4f46e5"/></linearGradient><linearGradient id="grad2" x1="50" y1="35" x2="50" y2="95" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#0f0c29"/></linearGradient></defs></svg>
         <h2 id="main-title">무한의 탑</h2>
+        <div id="instructions">
+            <div class="control-info"><span>🖥️</span><p>A / D or ← / →</p></div>
+            <div class="control-info"><span>📱</span><p>Touch Left / Right</p></div>
+        </div>
     </div>
 
     <div id="gameOverScreen" class="overlay hidden">
@@ -99,13 +118,14 @@
 
         <div class="button-group is-hidden">
             <button id="restartButton" class="btn-style">다시 시작</button>
+            <a href="https://www.threads.net/@ilovemom_2026" target="_blank" class="btn-style">개발자 Threads 방문</a>
         </div>
     </div>
 </div>
 
 <script>
     window.addEventListener('DOMContentLoaded', () => {
-        // --- Supabase 설정 (새로운 키로 교체) ---
+        // --- Supabase 설정 ---
         const SUPABASE_URL = 'https://fzfnjtlzovbpbglvkroh.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6Zm5qdGx6b3ZicGJnbHZrcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4OTcyMjEsImV4cCI6MjA3MTQ3MzIyMX0.yg43GbdVBPAzaghmERNGxRu9dte3bcpWTWjrOa0p55I';
         let supabase = null;
@@ -128,10 +148,11 @@
         const guestbookName = document.getElementById('guestbook-name'); const guestbookMessage = document.getElementById('guestbook-message');
         const guestbookSubmit = document.getElementById('guestbook-submit'); const guestbookError = document.getElementById('guestbook-error');
         const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
+        const touchLeft = document.getElementById('touch-left'); const touchRight = document.getElementById('touch-right');
 
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
-        let guestbookLimit = 3;
+        let guestbookLimit = 3; let lastTime = 0;
         const keys = { left: false, right: false }; const GRAVITY = 0.5, JUMP_FORCE = -12;
         
         // --- Audio ---
@@ -142,22 +163,46 @@
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
         function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';}
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
-        function update(){if(gameState!=='playing'||!player)return;
-            // 점수가 올라갈수록 속도 증가 (기본 6, 최대 12)
-            const speed = Math.min(6 + score * 0.005, 12); 
-            player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}player.dy+=GRAVITY;player.x+=player.dx;player.y+=player.dy;if(player.dy>0){platforms.forEach(p=>{if(player.x<p.x+p.width&&player.x+player.width>p.x&&player.y+player.height>p.y&&player.y+player.height<p.y+p.height+10){player.y=p.y-player.height;player.dy=JUMP_FORCE;if(isAudioReady)jumpSound.triggerAttackRelease("C5","0.05");if(p.type==='crumbling'&&p.state==='intact'){p.state='shaking';if(isAudioReady)crumbleSound.triggerAttackRelease("0.1");}if(p.type==='moving')player.x+=p.dx;}});}if(player.x<-player.width)player.x=canvas.width;if(player.x>canvas.width)player.x=-player.width;if(player.y<cameraY+canvas.height/2.5)cameraY=player.y-canvas.height/2.5;if(player.y<highestY){highestY=player.y;score=Math.floor((canvas.height-80-highestY)/10);scoreDisplay.innerText=score;}platforms.forEach(p=>{if(p.type==='moving'){p.x+=p.dx;if(p.x<0||p.x+p.width>canvas.width)p.dx*=-1;}if(p.state==='shaking')p.alpha=Math.max(0,p.alpha-0.02);});if(platforms.length>0&&platforms[platforms.length-1].y>cameraY-100){generatePlatform(platforms[platforms.length-1].y-(Math.random()*60+80));}platforms=platforms.filter(p=>p.y<cameraY+canvas.height+50&&p.alpha>0);player.frameCount++;if(player.dy<0)player.animationState='jumping';else if(keys.left||keys.right)player.animationState='running';else player.animationState='idle';if(player.frameCount%player.animationSpeed===0)player.animationFrame=(player.animationFrame+1)%20;if(player.y>cameraY+canvas.height)endGame();}
+        
+        function update(deltaTime){if(gameState!=='playing'||!player)return;
+            const speed=Math.min(6+score*0.005,12);player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
+            player.dy+=GRAVITY*deltaTime;player.x+=player.dx*deltaTime;player.y+=player.dy*deltaTime;
+            if(player.dy>0){platforms.forEach(p=>{if(player.x<p.x+p.width&&player.x+player.width>p.x&&player.y+player.height>p.y&&player.y+player.height<p.y+p.height+10){player.y=p.y-player.height;player.dy=JUMP_FORCE;if(isAudioReady)jumpSound.triggerAttackRelease("C5","0.05");if(p.type==='crumbling'&&p.state==='intact'){p.state='shaking';if(isAudioReady)crumbleSound.triggerAttackRelease("0.1");}if(p.type==='moving')player.x+=p.dx*deltaTime;}});}
+            if(player.x<-player.width)player.x=canvas.width;if(player.x>canvas.width)player.x=-player.width;if(player.y<cameraY+canvas.height/2.5)cameraY=player.y-canvas.height/2.5;if(player.y<highestY){highestY=player.y;score=Math.floor((canvas.height-80-highestY)/10);scoreDisplay.innerText=score;}
+            platforms.forEach(p=>{if(p.type==='moving'){p.x+=p.dx*deltaTime;if(p.x<0||p.x+p.width>canvas.width)p.dx*=-1;}if(p.state==='shaking')p.alpha=Math.max(0,p.alpha-0.02*deltaTime);});
+            if(platforms.length>0&&platforms[platforms.length-1].y>cameraY-100){generatePlatform(platforms[platforms.length-1].y-(Math.random()*60+80));}
+            platforms=platforms.filter(p=>p.y<cameraY+canvas.height+50&&p.alpha>0);player.frameCount++;if(player.dy<0)player.animationState='jumping';else if(keys.left||keys.right)player.animationState='running';else player.animationState='idle';if(player.frameCount%player.animationSpeed===0)player.animationFrame=(player.animationFrame+1)%20;if(player.y>cameraY+canvas.height)endGame();}
+        
         function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);if(gameState!=='playing'||!player)return;ctx.save();ctx.translate(0,-cameraY);stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});drawPlayer();ctx.restore();}
-        function gameLoop(){update();draw();requestAnimationFrame(gameLoop);}
+        
+        function gameLoop(currentTime){
+            if(!lastTime) lastTime = currentTime;
+            const deltaTime = (currentTime - lastTime) / (1000 / 60); // 60fps 기준 정규화
+            lastTime = currentTime;
+            update(deltaTime);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
         function drawPlayer(){if(!player)return;ctx.save();ctx.fillStyle='#f7f7f7';const cX=player.x+player.width/2,cY=player.y+player.height/2;ctx.translate(cX,cY);if(player.direction==='left')ctx.scale(-1,1);const anim=player.animationState;if(anim==='jumping')drawJumpingFrame();else if(anim==='running')(player.animationFrame<10)?drawRunningFrame1():drawRunningFrame2();else drawIdleFrame();ctx.restore();}
         function drawCharacterBody(a1,a2,l1,l2){const tX=-player.width/4,tY=-player.height/2;ctx.beginPath();ctx.arc(0,tY,12,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(tX,tY+10);ctx.lineTo(tX+20,tY+10);ctx.lineTo(tX+15,tY+45);ctx.lineTo(tX+5,tY+45);ctx.closePath();ctx.fill();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a1);ctx.fillRect(-3,0,6,25);ctx.restore();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a2);ctx.fillStyle='#ccc';ctx.fillRect(-3,0,6,25);ctx.restore();ctx.fillStyle='#f7f7f7';ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l1);ctx.fillRect(-4,0,8,30);ctx.restore();ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l2);ctx.fillStyle='#ccc';ctx.fillRect(-4,0,8,30);ctx.restore();}
         function drawIdleFrame(){drawCharacterBody(0.1,-0.1,0.1,-0.1);}function drawRunningFrame1(){drawCharacterBody(Math.PI/4,-Math.PI/4,Math.PI/6,-Math.PI/6);}function drawRunningFrame2(){drawCharacterBody(-Math.PI/4,Math.PI/4,-Math.PI/6,Math.PI/6);}function drawJumpingFrame(){drawCharacterBody(Math.PI/3,-Math.PI/3,Math.PI/5,-Math.PI/5);}
 
         // --- State Transition ---
-        function startGame() { initAudio(); startScreen.classList.add('hidden'); setTimeout(resetGame, 500); }
+        function startGame() { 
+            initAudio(); 
+            startScreen.classList.add('hidden'); 
+            touchLeft.classList.add('visible');
+            touchRight.classList.add('visible');
+            setTimeout(resetGame, 500); 
+        }
         function endGame() {
             gameState = 'gameOver'; finalGameScore = score;
             if(isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
-            scoreDisplay.style.display = 'none'; gameOverScreen.classList.remove('hidden');
+            scoreDisplay.style.display = 'none'; 
+            gameOverScreen.classList.remove('hidden');
+            touchLeft.classList.remove('visible');
+            touchRight.classList.remove('visible');
             
             const scoreObj = { value: 0 };
             anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
@@ -170,13 +215,10 @@
         }
         function restartGame() {
             gameOverScreen.classList.add('hidden');
-            // Hide elements immediately for a smoother transition out
-            document.querySelectorAll('#gameOverScreen .content-wrapper, #gameOverScreen .button-group, #finalScoreLabel, #finalScore').forEach(el => {
-                el.style.opacity = 0;
-            });
+            document.querySelectorAll('#gameOverScreen .content-wrapper, #gameOverScreen .button-group, #finalScoreLabel, #finalScore').forEach(el => { el.style.opacity = 0; });
             setTimeout(() => {
-                guestbookLimit = 3; // Reset guestbook limit
-                resetGame();
+                guestbookLimit = 3; 
+                startGame();
             }, 500);
         }
         
@@ -292,7 +334,7 @@
             mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
             anime({ targets: '#logo', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
             anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
-            gameLoop();
+            requestAnimationFrame(gameLoop);
         }
 
         init();
