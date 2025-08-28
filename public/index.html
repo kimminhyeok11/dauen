@@ -3,361 +3,427 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>무한의 머시기</title>
+    <title>무한의 탑</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <style>
-        body {
+        /* Reset styles for a full-screen experience */
+        html, body {
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
             background-color: #000;
             font-family: 'Malgun Gothic', sans-serif;
-            color: #e0e0e0;
-            overflow: hidden;
         }
-        h1 {
-            color: #fff;
-            text-shadow: 0 0 10px #fff, 0 0 20px #ff00ff, 0 0 30px #00ffff;
-            margin-bottom: 10px;
-        }
+        /* Game container now takes up the full screen */
         #game-wrapper {
             position: relative;
             width: 100%;
-            max-width: 500px; /* 세로 게임에 맞게 너비 조정 */
-            aspect-ratio: 9 / 16; /* 세로 비율 */
+            height: 100%;
+            max-width: 500px; /* Max width for larger screens */
+            margin: 0 auto; /* Center the game */
             display: flex;
             justify-content: center;
             align-items: center;
+            background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         }
         canvas {
             width: 100%;
             height: 100%;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(100, 100, 255, 0.5);
             cursor: pointer;
+            /* Prevents blue highlight on touch */
+            -webkit-tap-highlight-color: transparent;
         }
-        #touch-controls {
+        /* Score display directly on the canvas area */
+        #score-display {
             position: absolute;
-            bottom: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding: 0 20px;
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            z-index: 10;
+            display: none; /* Hidden until game starts */
         }
-        .control-button {
-            width: 70px;
-            height: 70px;
-            background-color: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
+        /* Common style for all overlay screens (start, game over) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            color: white;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 30px;
-            color: white;
-            font-weight: bold;
-            transition: background-color 0.1s;
+            text-align: center;
+            z-index: 20;
+            cursor: pointer;
+            /* STABILITY FIX: Make overlay invisible by default, not display:none, to prevent layout shifts */
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s, visibility 0.5s;
         }
-        .control-button:active {
-            background-color: rgba(255, 255, 255, 0.4);
+        .overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .overlay h2 {
+            font-size: 3.5rem;
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 20px #a252ff, 0 0 30px #a252ff;
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+        .overlay .title-char {
+            display: inline-block;
+        }
+        .overlay p {
+            font-size: 1.5rem;
+            margin: 20px 0;
+        }
+        .overlay .prompt-text {
+            font-size: 1.1rem;
+            margin-top: 40px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        /* Unified button style */
+        .btn-style {
+            /* STABILITY FIX: Let anime.js handle transform and opacity for intro animation */
+            padding: 15px 30px;
+            width: 80%;
+            max-width: 300px;
+            margin-top: 15px;
+            background: linear-gradient(45deg, #4f46e5, #c026d3);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 5px 20px rgba(99, 60, 235, 0.5);
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+            box-sizing: border-box;
+            /* ANIMATION FIX: Transition only properties for hover, not all properties */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .btn-style:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(99, 60, 235, 0.7);
+        }
+        #gameOverScreen {
+            cursor: default; /* No cursor pointer on the overlay itself */
+        }
+        #logo {
+            width: 150px;
+            height: 150px;
+            margin-bottom: 20px;
+        }
+        /* ANIMATION FIX: A simple class to hide elements before anime.js takes over */
+        .is-hidden {
+            opacity: 0;
         }
     </style>
 </head>
 <body>
-<h1>무한의 탑</h1>
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
-    <div id="touch-controls">
-        <div id="left-control" class="control-button">◀</div>
-        <div id="right-control" class="control-button">▶</div>
+    <div id="score-display">점수: 0</div>
+    
+    <div id="startScreen" class="overlay">
+        <svg id="logo" class="is-hidden" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 5 L70 35 L50 30 L30 35 Z" fill="url(#grad1)"/>
+            <path d="M40 35 L60 35 L65 95 L35 95 Z" fill="url(#grad2)"/>
+            <defs>
+                <linearGradient id="grad1" x1="50" y1="5" x2="50" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#a252ff"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
+                <linearGradient id="grad2" x1="50" y1="35" x2="50" y2="95" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#0f0c29"/></linearGradient>
+            </defs>
+        </svg>
+        <h2 id="main-title">무한의 탑</h2>
+        <p class="prompt-text is-hidden">화면을 터치하여 시작</p>
+    </div>
+
+    <div id="gameOverScreen" class="overlay hidden">
+        <h2 class="is-hidden">게임 오버</h2>
+        <p class="is-hidden">최종 점수: <span id="finalScore">0</span></p>
+        <button id="restartButton" class="btn-style is-hidden">게임 다시 시작</button>
+        <a href="https://www.threads.net/@ilovemom_2026" target="_blank" class="btn-style is-hidden">개발자 Threads 방문하기</a>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const wrapper = document.getElementById('game-wrapper');
+    window.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('game-wrapper');
+        const scoreDisplay = document.getElementById('score-display');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScoreEl = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+        const mainTitle = document.getElementById('main-title');
 
-    let canvasWidth, canvasHeight;
+        // --- Game State & Constants ---
+        let canvasWidth, canvasHeight;
+        let gameState = 'start'; // 'start', 'playing', 'gameOver'
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -12;
+        const BASE_PLAYER_SPEED = 6;
+        const SPEED_TIER_2 = 7.5;
+        const SPEED_TIER_3 = 9;
+        
+        let player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0;
+        const keys = { left: false, right: false };
 
-    function resizeCanvas() {
-        const rect = wrapper.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-        canvasWidth = canvas.width;
-        canvasHeight = canvas.height;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+        // --- Audio ---
+        let jumpSound, gameOverSound, crumbleSound, isAudioReady = false;
 
-    // --- 게임 상태 및 상수 ---
-    let gameState = 'playing'; // 'playing', 'gameOver'
-    const GRAVITY = 0.5;
-    const JUMP_FORCE = -12;
-    const PLAYER_SPEED = 6;
-    
-    let player, platforms, stars, cameraY, score, highestY;
-
-    // --- 플레이어 객체 ---
-    function createPlayer() {
-        return {
-            x: canvasWidth / 2 - 20,
-            y: canvasHeight - 80,
-            width: 40,
-            height: 70,
-            dx: 0,
-            dy: 0,
-            onGround: false,
-            direction: 'right',
-            animationState: 'idle',
-            frameCount: 0,
-            animationFrame: 0,
-            animationSpeed: 5,
-        };
-    }
-
-    // --- 게임 초기화 ---
-    function initGame() {
-        player = createPlayer();
-        platforms = [];
-        stars = [];
-        cameraY = 0;
-        score = 0;
-        highestY = player.y;
-
-        // 시작 발판 생성
-        platforms.push({ x: 0, y: canvasHeight - 40, width: canvasWidth, height: 40 });
-        // 초기 플랫폼들 생성
-        for (let i = 1; i < 10; i++) {
-            generatePlatform(canvasHeight - i * 100);
+        function initAudio() {
+            if (isAudioReady) return;
+            Tone.start();
+            jumpSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination();
+            gameOverSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.1, release: 0.5 } }).toDestination();
+            crumbleSound = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.1 } }).toDestination();
+            isAudioReady = true;
         }
 
-        // 별 생성
-        for (let i = 0; i < 100; i++) {
-            stars.push({
-                x: Math.random() * canvasWidth,
-                y: Math.random() * canvasHeight,
-                radius: Math.random() * 1.5,
-                alpha: Math.random()
+        // --- Initialization ---
+        function setCanvasSize() {
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = rect.width; canvas.height = rect.height;
+            canvasWidth = canvas.width; canvasHeight = canvas.height;
+        }
+
+        function resetGame() {
+            keys.left = false; keys.right = false;
+            scoreDisplay.style.display = 'block';
+            player = {
+                x: canvasWidth / 2 - 20, y: canvasHeight - 80, width: 40, height: 70, dx: 0, dy: 0,
+                direction: 'right', animationState: 'idle', frameCount: 0, animationFrame: 0, animationSpeed: 5,
+            };
+            platforms = []; stars = []; cameraY = 0; score = 0;
+            highestY = player.y;
+            scoreDisplay.innerText = `점수: 0`;
+            platforms.push({ x: 0, y: canvasHeight - 40, width: canvasWidth, height: 40, type: 'static' });
+            for (let i = 1; i < 15; i++) generatePlatform(canvasHeight - i * 100);
+            for (let i = 0; i < 100; i++) {
+                stars.push({ x: Math.random() * canvasWidth, y: Math.random() * canvasHeight * 2, radius: Math.random() * 1.5, alpha: Math.random() });
+            }
+            gameState = 'playing';
+        }
+        
+        function generatePlatform(yPos) {
+            const width = Math.random() * 80 + 80;
+            const x = Math.random() * (canvasWidth - width);
+            let type = 'static', dx = 0;
+            const rand = Math.random();
+            if (score > 200 && rand < 0.20) type = 'crumbling';
+            else if (score > 50 && rand < 0.25) {
+                type = 'moving';
+                dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1);
+            }
+            platforms.push({ x, y: yPos, width, height: 20, type, dx, state: 'intact', alpha: 1 });
+        }
+
+        // --- Game Loop Functions ---
+        function update() {
+            if (gameState !== 'playing' || !player) return;
+            let currentPlayerSpeed = score > 800 ? SPEED_TIER_3 : (score > 300 ? SPEED_TIER_2 : BASE_PLAYER_SPEED);
+            player.dx = 0;
+            if (keys.left) { player.dx = -currentPlayerSpeed; player.direction = 'left'; }
+            if (keys.right) { player.dx = currentPlayerSpeed; player.direction = 'right'; }
+            player.dy += GRAVITY; player.x += player.dx; player.y += player.dy;
+            if (player.dy > 0) {
+                platforms.forEach(p => {
+                    if (player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 10) {
+                        player.y = p.y - player.height; player.dy = JUMP_FORCE;
+                        if (isAudioReady) jumpSound.triggerAttackRelease("C5", "0.05");
+                        if (p.type === 'crumbling' && p.state === 'intact') {
+                            p.state = 'shaking';
+                            if (isAudioReady) crumbleSound.triggerAttackRelease("0.1");
+                        }
+                        if (p.type === 'moving') player.x += p.dx;
+                    }
+                });
+            }
+            if (player.x < -player.width) player.x = canvasWidth;
+            if (player.x > canvasWidth) player.x = -player.width;
+            if (player.y < cameraY + canvasHeight / 2.5) cameraY = player.y - canvasHeight / 2.5;
+            if (player.y < highestY) {
+                highestY = player.y;
+                score = Math.floor((canvasHeight - 80 - highestY) / 10);
+                scoreDisplay.innerText = `점수: ${score}`;
+            }
+            platforms.forEach(p => {
+                if (p.type === 'moving') {
+                    p.x += p.dx;
+                    if (p.x < 0 || p.x + p.width > canvasWidth) p.dx *= -1;
+                }
+                if (p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02);
+            });
+            if (platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100) {
+                generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));
+            }
+            platforms = platforms.filter(p => p.y < cameraY + canvasHeight + 50 && p.alpha > 0);
+            player.frameCount++;
+            if (player.dy < 0) player.animationState = 'jumping';
+            else if (keys.left || keys.right) player.animationState = 'running';
+            else player.animationState = 'idle';
+            if (player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
+            if (player.y > cameraY + canvasHeight) endGame();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            if (gameState !== 'playing' || !player) return;
+            ctx.save();
+            ctx.translate(0, -cameraY);
+            stars.forEach(s => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+                ctx.beginPath(); ctx.arc(s.x, s.y + cameraY * 0.8, s.radius, 0, Math.PI * 2); ctx.fill();
+            });
+            platforms.forEach(p => {
+                ctx.globalAlpha = p.alpha;
+                const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+                if (p.type === 'moving') { grad.addColorStop(0, '#ff8c42'); grad.addColorStop(1, '#ff5e57'); } 
+                else if (p.state === 'shaking') { grad.addColorStop(0, '#b0a090'); grad.addColorStop(1, '#8a7a6a'); }
+                else { grad.addColorStop(0, '#6c5b7b'); grad.addColorStop(1, '#355c7d'); }
+                ctx.fillStyle = grad;
+                ctx.fillRect(p.x + (p.state === 'shaking' ? (Math.random() - 0.5) * 4 : 0), p.y, p.width, p.height);
+                ctx.globalAlpha = 1;
+            });
+            drawPlayer();
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update(); draw(); requestAnimationFrame(gameLoop);
+        }
+
+        // --- State Transition Functions ---
+        function startGame() {
+            initAudio();
+            startScreen.classList.add('hidden');
+            // Wait for fade out transition to finish before resetting game
+            setTimeout(resetGame, 500);
+        }
+
+        function endGame() {
+            gameState = 'gameOver';
+            if (isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
+            scoreDisplay.style.display = 'none';
+            gameOverScreen.classList.remove('hidden');
+            
+            const scoreObj = { value: 0 };
+            
+            // ANIMATION FIX: Use a spring animation for a more natural feel.
+            // Set initial state directly in the animation call.
+            anime({
+                targets: '#gameOverScreen > *',
+                translateY: (el, i) => [50, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(100, {start: 300}),
+                // Use a spring physics based easing for a natural bounce
+                easing: 'spring(1, 80, 10, 0)',
+            });
+
+            anime({
+                targets: scoreObj, value: score, round: 1, duration: 1200, easing: 'easeOutCubic',
+                update: () => { finalScoreEl.innerText = scoreObj.value; }
             });
         }
-        gameState = 'playing';
-    }
 
-    function generatePlatform(yPos) {
-        const width = Math.random() * 80 + 80;
-        const x = Math.random() * (canvasWidth - width);
-        platforms.push({ x, y: yPos, width, height: 20 });
-    }
-
-    // --- 입력 처리 (키보드 & 터치) ---
-    const keys = { left: false, right: false };
-
-    document.addEventListener('keydown', (e) => {
-        if (e.code === 'ArrowLeft') keys.left = true;
-        if (e.code === 'ArrowRight') keys.right = true;
-        if (e.code === 'Space' && gameState === 'gameOver') initGame();
-    });
-    document.addEventListener('keyup', (e) => {
-        if (e.code === 'ArrowLeft') keys.left = false;
-        if (e.code === 'ArrowRight') keys.right = false;
-    });
-    
-    canvas.addEventListener('click', () => {
-        if (gameState === 'gameOver') initGame();
-    });
-
-    const leftBtn = document.getElementById('left-control');
-    const rightBtn = document.getElementById('right-control');
-    leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
-    leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
-    rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
-    rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
-
-
-    // --- 그리기 함수 ---
-    function draw() {
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-        
-        // 배경
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(1, '#0f0c29');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-        // 카메라 이동 적용
-        ctx.save();
-        ctx.translate(0, -cameraY);
-
-        // 별 그리기 (카메라에 따라 약간씩 움직이게)
-        stars.forEach(star => {
-            ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
-            ctx.beginPath();
-            ctx.arc(star.x, star.y + cameraY * 0.9, star.radius, 0, Math.PI * 2);
-            ctx.fill();
-        });
-
-        // 플랫폼 그리기
-        platforms.forEach(p => {
-            const gradient = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
-            gradient.addColorStop(0, '#6c5b7b');
-            gradient.addColorStop(1, '#355c7d');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(p.x, p.y, p.width, p.height);
-        });
-
-        // 플레이어 그리기
-        drawPlayer();
-
-        ctx.restore();
-        
-        // UI (점수)
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`점수: ${score}`, canvasWidth / 2, 40);
-
-        if (gameState === 'gameOver') {
-            drawGameOverScreen();
+        function restartGame() {
+            gameOverScreen.classList.add('hidden');
+            // Wait for fade out transition to finish before resetting game
+            setTimeout(() => {
+                // BUG FIX: Hide elements again so they can be animated in next time.
+                document.querySelectorAll('#gameOverScreen > *').forEach(el => el.classList.add('is-hidden'));
+                resetGame();
+            }, 500);
         }
-    }
-
-    function drawPlayer() {
-        // 이전 버전의 플레이어 그리기 함수들 재사용
-        ctx.save();
-        ctx.fillStyle = '#f7f7f7';
-        const centerX = player.x + player.width / 2;
-        const centerY = player.y + player.height / 2;
-        ctx.translate(centerX, centerY);
-        if (player.direction === 'left') ctx.scale(-1, 1);
         
-        switch (player.animationState) {
-            case 'jumping': drawJumpingFrame(); break;
-            case 'running': 
-                if (player.animationFrame < 10) drawRunningFrame1(); else drawRunningFrame2();
-                break;
-            default: drawIdleFrame(); break;
+        // --- Drawing Player ---
+        function drawPlayer() {
+            if (!player) return;
+            ctx.save();
+            ctx.fillStyle = '#f7f7f7';
+            const centerX = player.x + player.width / 2;
+            const centerY = player.y + player.height / 2;
+            ctx.translate(centerX, centerY);
+            if (player.direction === 'left') ctx.scale(-1, 1);
+            const anim = player.animationState;
+            if (anim === 'jumping') drawJumpingFrame();
+            else if (anim === 'running') (player.animationFrame < 10) ? drawRunningFrame1() : drawRunningFrame2();
+            else drawIdleFrame();
+            ctx.restore();
         }
-        ctx.restore();
-    }
-    
-    function drawCharacterBody(armAngle1, armAngle2, legAngle1, legAngle2) {
-        const torsoX = -player.width / 4, torsoY = -player.height / 2;
-        ctx.beginPath(); ctx.arc(0, torsoY, 12, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(torsoX, torsoY + 10); ctx.lineTo(torsoX + 20, torsoY + 10); ctx.lineTo(torsoX + 15, torsoY + 45); ctx.lineTo(torsoX + 5, torsoY + 45); ctx.closePath(); ctx.fill();
-        ctx.save(); ctx.translate(torsoX + 10, torsoY + 20); ctx.rotate(armAngle1); ctx.fillRect(-3, 0, 6, 25); ctx.restore();
-        ctx.save(); ctx.translate(torsoX + 10, torsoY + 20); ctx.rotate(armAngle2); ctx.fillStyle = '#ccc'; ctx.fillRect(-3, 0, 6, 25); ctx.restore();
-        ctx.fillStyle = '#f7f7f7';
-        ctx.save(); ctx.translate(torsoX + 10, torsoY + 45); ctx.rotate(legAngle1); ctx.fillRect(-4, 0, 8, 30); ctx.restore();
-        ctx.save(); ctx.translate(torsoX + 10, torsoY + 45); ctx.rotate(legAngle2); ctx.fillStyle = '#ccc'; ctx.fillRect(-4, 0, 8, 30); ctx.restore();
-    }
-    function drawIdleFrame() { drawCharacterBody(0.1, -0.1, 0.1, -0.1); }
-    function drawRunningFrame1() { drawCharacterBody(Math.PI / 4, -Math.PI / 4, Math.PI / 6, -Math.PI / 6); }
-    function drawRunningFrame2() { drawCharacterBody(-Math.PI / 4, Math.PI / 4, -Math.PI / 6, Math.PI / 6); }
-    function drawJumpingFrame() { drawCharacterBody(Math.PI / 3, -Math.PI / 3, Math.PI / 5, -Math.PI / 5); }
+        function drawCharacterBody(a1, a2, l1, l2) {
+            const tX = -player.width / 4, tY = -player.height / 2;
+            ctx.beginPath(); ctx.arc(0, tY, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(tX, tY + 10); ctx.lineTo(tX + 20, tY + 10); ctx.lineTo(tX + 15, tY + 45); ctx.lineTo(tX + 5, tY + 45); ctx.closePath(); ctx.fill();
+            ctx.save(); ctx.translate(tX + 10, tY + 20); ctx.rotate(a1); ctx.fillRect(-3, 0, 6, 25); ctx.restore();
+            ctx.save(); ctx.translate(tX + 10, tY + 20); ctx.rotate(a2); ctx.fillStyle = '#ccc'; ctx.fillRect(-3, 0, 6, 25); ctx.restore();
+            ctx.fillStyle = '#f7f7f7';
+            ctx.save(); ctx.translate(tX + 10, tY + 45); ctx.rotate(l1); ctx.fillRect(-4, 0, 8, 30); ctx.restore();
+            ctx.save(); ctx.translate(tX + 10, tY + 45); ctx.rotate(l2); ctx.fillStyle = '#ccc'; ctx.fillRect(-4, 0, 8, 30); ctx.restore();
+        }
+        function drawIdleFrame() { drawCharacterBody(0.1, -0.1, 0.1, -0.1); }
+        function drawRunningFrame1() { drawCharacterBody(Math.PI / 4, -Math.PI / 4, Math.PI / 6, -Math.PI / 6); }
+        function drawRunningFrame2() { drawCharacterBody(-Math.PI / 4, Math.PI / 4, -Math.PI / 6, Math.PI / 6); }
+        function drawJumpingFrame() { drawCharacterBody(Math.PI / 3, -Math.PI / 3, Math.PI / 5, -Math.PI / 5); }
 
-    function drawGameOverScreen() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // --- Event Listeners & Main Setup ---
+        function setupListeners() {
+            window.addEventListener('resize', setCanvasSize, { passive: true });
+            startScreen.addEventListener('click', startGame);
+            restartButton.addEventListener('click', restartGame);
+            const handleMoveStart = (x) => {
+                if (gameState !== 'playing') return;
+                const midPoint = canvas.getBoundingClientRect().left + canvasWidth / 2;
+                keys.left = x < midPoint; keys.right = x >= midPoint;
+            };
+            const handleMoveEnd = () => { if (gameState === 'playing') { keys.left = false; keys.right = false; } };
+            canvas.addEventListener('touchstart', e => { e.preventDefault(); handleMoveStart(e.touches[0].clientX); }, { passive: false });
+            canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMoveStart(e.touches[0].clientX); }, { passive: false });
+            canvas.addEventListener('touchend', e => { e.preventDefault(); handleMoveEnd(); }, { passive: false });
+            document.addEventListener('keydown', e => {
+                if (gameState !== 'playing') return;
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+                if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            });
+            document.addEventListener('keyup', e => {
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+                if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            });
+        }
 
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('게임 오버', canvasWidth / 2, canvasHeight / 2 - 60);
-
-        ctx.font = '24px sans-serif';
-        ctx.fillText(`최종 점수: ${score}`, canvasWidth / 2, canvasHeight / 2);
-
-        ctx.font = '20px sans-serif';
-        ctx.fillText('화면을 터치하거나 Space를 눌러 다시 시작', canvasWidth / 2, canvasHeight / 2 + 50);
-    }
-
-    // --- 게임 로직 업데이트 ---
-    function update() {
-        if (gameState !== 'playing') return;
-
-        // 입력
-        player.dx = 0;
-        if (keys.left) { player.dx = -PLAYER_SPEED; player.direction = 'left'; }
-        if (keys.right) { player.dx = PLAYER_SPEED; player.direction = 'right'; }
-
-        // 물리
-        player.dy += GRAVITY;
-        player.x += player.dx;
-        player.y += player.dy;
-        player.onGround = false;
-
-        // 플랫폼 충돌 (올라갈 때만 충돌)
-        if (player.dy > 0) {
-            platforms.forEach(p => {
-                if (player.x < p.x + p.width &&
-                    player.x + player.width > p.x &&
-                    player.y + player.height > p.y &&
-                    player.y + player.height < p.y + p.height) {
-                    player.y = p.y - player.height;
-                    player.dy = JUMP_FORCE; // 발판에 닿으면 자동 점프
+        function init() {
+            setCanvasSize();
+            setupListeners();
+            mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
+            anime({
+                targets: '#startScreen > *:not(h2)',
+                translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100, {start: 500}),
+                easing: 'easeOutExpo', complete: () => {
+                    anime({ targets: '.prompt-text', opacity: [1, 0.7, 1], duration: 1500, loop: true, direction: 'alternate', easing: 'easeInOutSine' });
                 }
             });
-        }
-        
-        // 화면 좌우 경계
-        if (player.x < 0) player.x = 0;
-        if (player.x + player.width > canvasWidth) player.x = canvasWidth - player.width;
-
-        // 카메라 스크롤
-        if (player.y < cameraY + canvasHeight / 2) {
-            cameraY = player.y - canvasHeight / 2;
+            anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
+            gameLoop();
         }
 
-        // 점수 업데이트
-        if (player.y < highestY) {
-            highestY = player.y;
-            score = Math.floor((canvasHeight - 80 - highestY) / 10);
-        }
-
-        // 플랫폼 관리
-        // 화면 위로 새 플랫폼 생성
-        const highestPlatform = platforms.reduce((prev, curr) => (prev.y < curr.y ? prev : curr));
-        if (highestPlatform.y > cameraY - 100) {
-            generatePlatform(highestPlatform.y - (Math.random() * 60 + 80));
-        }
-        // 화면 아래로 사라진 플랫폼 제거
-        platforms = platforms.filter(p => p.y < cameraY + canvasHeight + 50);
-
-
-        // 애니메이션
-        player.frameCount++;
-        if (player.dy < 0) player.animationState = 'jumping';
-        else if (keys.left || keys.right) player.animationState = 'running';
-        else player.animationState = 'idle';
-        if (player.frameCount % player.animationSpeed === 0) {
-            player.animationFrame = (player.animationFrame + 1) % 20;
-        }
-
-        // 게임 오버 조건
-        if (player.y > cameraY + canvasHeight) {
-            gameState = 'gameOver';
-        }
-    }
-
-    // --- 메인 게임 루프 ---
-    function gameLoop() {
-        update();
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
-
-    // 게임 시작
-    initGame();
-    gameLoop();
+        init();
+    });
 </script>
 
 </body>
