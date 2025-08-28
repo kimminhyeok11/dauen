@@ -14,7 +14,7 @@
             --border-color: rgba(255, 255, 255, 0.1); --error-color: #f87171;
         }
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
-        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); }
+        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); }
         canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; overflow-y: auto; }
@@ -153,75 +153,88 @@
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
-        // 전체 속도 1.3배 상향 조정
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
+        // --- 배경화면 상태 ---
+        let backgroundState = 0;
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+        };
+        const backgrounds = [
+            { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
+            { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
+            { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
+            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계 (신규)
+        ];
+        let currentBgTop = backgrounds[0].top;
+        let currentBgBottom = backgrounds[0].bottom;
+
         // --- Audio ---
         let isAudioReady = false; let jumpSound, gameOverSound, crumbleSound;
         function initAudio() { if(isAudioReady) return; Tone.start().then(() => { jumpSound = new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.1,sustain:0.05,release:0.1}}).toDestination(); gameOverSound = new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.1,decay:0.5,sustain:0.1,release:0.5}}).toDestination(); crumbleSound = new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1}}).toDestination(); isAudioReady = true; }); }
 
         // --- Initialization & Game Loop ---
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';}
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
+            backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom; // 배경 초기화
+        }
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
-        function update(deltaTime){if(gameState!=='playing'||!player)return;
-            // 전체 속도 1.3배 상향 조정
-            const speed = Math.min(11.7 + score * 0.0091, 20.8); 
+        function update(deltaTime){
+            if(gameState!=='playing'||!player)return;
+            const speed = Math.min(9 + score * 0.007, 16); 
             player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
-            
             const currentJumpForce = JUMP_FORCE;
-            
-            player.dy += GRAVITY * deltaTime;
-            player.x += player.dx * deltaTime;
-            player.y += player.dy * deltaTime;
-            
-            if(player.dy > 0){
-                platforms.forEach(p => {
-                    if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
-                        player.y = p.y - player.height;
-                        player.dy = currentJumpForce;
-                        if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05");
-                        if(p.type === 'crumbling' && p.state === 'intact'){
-                            p.state = 'shaking';
-                            if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");
-                        }
-                        if(p.type === 'moving') player.x += p.dx * deltaTime;
-                    }
-                });
-            }
-            if(player.x < -player.width) player.x = canvas.width;
-            if(player.x > canvas.width) player.x = -player.width;
+            player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
+            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {player.y = p.y - player.height; player.dy = currentJumpForce; if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} if(p.type === 'moving') player.x += p.dx * deltaTime;}}); }
+            if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
             if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
-            if(player.y < highestY){
-                highestY = player.y;
-                score = Math.floor((canvas.height - 80 - highestY) / 10);
-                scoreDisplay.innerText = score;
-            }
-            platforms.forEach(p => {
-                if(p.type === 'moving'){
-                    p.x += p.dx * deltaTime;
-                    if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;
-                }
-                if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);
-            });
-            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){
-                generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));
-            }
+            if(player.y < highestY){highestY = player.y; score = Math.floor((canvas.height - 80 - highestY) / 10); scoreDisplay.innerText = score;}
+            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
+            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
             platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
-            player.frameCount++;
-            if(player.dy < 0) player.animationState = 'jumping';
-            else if(keys.left || keys.right) player.animationState = 'running';
-            else player.animationState = 'idle';
+            player.frameCount++; if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
             if(player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
             if(player.y > cameraY + canvas.height) endGame();
+
+            // 배경 업데이트
+            let targetState = 0;
+            if (score > 2500) targetState = 3;      // 2501점 이상: 천상계
+            else if (score > 1500) targetState = 2; // 1501점 이상: 제4세계
+            else if (score > 500) targetState = 1;  // 501점 이상: 우주
+            
+            if (backgroundState !== targetState) backgroundState = targetState;
+            
+            const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
+            const targetBg = backgrounds[backgroundState];
+            currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime);
+            currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime);
+            currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
+            currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime);
+            currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime);
+            currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
         }
         
-        function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);if(gameState!=='playing'||!player)return;ctx.save();ctx.translate(0,-cameraY);stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});drawPlayer();ctx.restore();}
+        function draw(){
+            const rgbToString = (rgb) => `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGrad.addColorStop(0, rgbToString(currentBgTop));
+            bgGrad.addColorStop(1, rgbToString(currentBgBottom));
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if(gameState!=='playing'||!player)return;
+            ctx.save();ctx.translate(0,-cameraY);
+            stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});
+            platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
+            drawPlayer();
+            ctx.restore();
+        }
         
         function gameLoop(currentTime){
             if(!lastTime) lastTime = currentTime;
-            const deltaTime = (currentTime - lastTime) / (1000 / 60); // 60fps 기준 정규화
+            const deltaTime = (currentTime - lastTime) / (1000 / 60);
             lastTime = currentTime;
             update(deltaTime);
             draw();
