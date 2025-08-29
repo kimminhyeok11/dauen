@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>무한의 탑</title>
+    <title>별의 아이</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,7 +19,6 @@
         canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; image-rendering: pixelated; }
         #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
         
-        /* --- 콤보 디스플레이 --- */
         #combo-display {
             position: absolute;
             top: 70px;
@@ -34,17 +33,39 @@
             pointer-events: none;
         }
         
-        /* --- 파티클 효과 --- */
         #particle-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11; }
         .particle { position: absolute; background-color: var(--combo-color); border-radius: 50%; }
 
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         .overlay.hidden { opacity: 0; visibility: hidden; }
         .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
-        #logo { width: 120px; height: 120px; margin-bottom: 20px; }
         .is-hidden { opacity: 0; }
+        
+        #intro-character {
+            width: 84px;
+            height: 141px;
+            background-image: url('https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp');
+            background-size: 410px 614px;
+            background-position: -51px -68px;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
 
-        #instructions { margin-top: 30px; background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .story-blurb {
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            margin-top: -5px;
+            margin-bottom: 25px;
+            max-width: 280px;
+        }
+
+        #instructions { background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
         .control-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
         .control-info:not(:last-child) { margin-bottom: 15px; }
         .control-info span { font-size: 1.5rem; }
@@ -55,9 +76,9 @@
         #touch-left { left: 20px; }
         #touch-right { right: 20px; }
 
-        #gameOverScreen { justify-content: flex-start; padding-top: 4vh; }
+        #gameOverScreen { justify-content: flex-start; padding-top: 2vh; }
         #finalScore { font-size: 2.5rem; font-weight: 700; color: #facc15; }
-        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 15px; }
+        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 5px; }
 
         .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
         .content-box { width: 100%; background-color: var(--bg-dark-2); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; box-sizing: border-box; text-align: left; }
@@ -88,7 +109,7 @@
         #guestbook-submit:disabled { background: #374151; cursor: not-allowed; }
         #guestbook-error { color: var(--error-color); font-size: 0.8rem; height: 1em; text-align: left; margin-top: 5px; }
 
-        .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 10px; margin-top: 15px; }
+        .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 8px; margin-top: 12px; }
         .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; text-align: center; }
         .btn-style:hover { background-color: var(--border-color); }
     </style>
@@ -103,8 +124,9 @@
     <div id="touch-right" class="touch-indicator">&gt;</div>
     
     <div id="startScreen" class="overlay">
-        <svg id="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M50 5 L70 35 L50 30 L30 35 Z" fill="url(#grad1)"/><path d="M40 35 L60 35 L65 95 L35 95 Z" fill="url(#grad2)"/><defs><linearGradient id="grad1" x1="50" y1="5" x2="50" y2="35" gradientUnits="userSpaceOnUse"><stop stop-color="#a252ff"/><stop offset="1" stop-color="#4f46e5"/></linearGradient><linearGradient id="grad2" x1="50" y1="35" x2="50" y2="95" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#0f0c29"/></linearGradient></defs></svg>
-        <h2 id="main-title">무한의 탑</h2>
+        <div id="intro-character"></div>
+        <h2 id="main-title">별의 아이</h2>
+        <p class="story-blurb">길 잃은 작은 별이 집으로 돌아갈 수 있도록 도와주세요.</p>
         <div id="instructions">
             <div class="control-info"><span>🖥️</span><p>A / D or ← / →</p></div>
             <div class="control-info"><span>📱</span><p>Touch Left / Right</p></div>
@@ -191,11 +213,11 @@
         const animations = {
             idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
             running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
-            jumping: { frames: ["sprite_8", "sprite_9"], speed: 1 } // 점프는 dy값으로 프레임 결정
+            jumping: { frames: ["sprite_8", "sprite_9"], speed: 1 }
         };
 
         // --- Game State & Constants ---
-        let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
+        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
         let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
@@ -221,7 +243,10 @@
 
         // --- Initialization & Game Loop ---
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
+            stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
+            moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
+            gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
             comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null;
         }
@@ -249,12 +274,9 @@
             if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
             platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
             
-            // 애니메이션 상태 업데이트
             player.frameCount++; 
             const currentAnimData = animations[player.animationState];
-            if(player.frameCount % currentAnimData.speed === 0) {
-                player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length;
-            }
+            if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
             if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
             if(player.y > cameraY + canvas.height) endGame();
 
@@ -265,6 +287,8 @@
             const targetBg = backgrounds[backgroundState];
             currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
             currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
+
+            stars.forEach(s => { s.alpha = s.baseAlpha + Math.sin(Date.now() * s.twinkleSpeed) * (s.baseAlpha / 2); });
         }
         
         function draw(){
@@ -272,9 +296,25 @@
             const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             bgGrad.addColorStop(0, rgbToString(currentBgTop)); bgGrad.addColorStop(1, rgbToString(currentBgBottom));
             ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(0, -cameraY * 0.8);
+            if (backgroundState === 0 && moon) {
+                ctx.fillStyle = 'rgba(240, 240, 255, 0.8)'; ctx.shadowColor = 'white'; ctx.shadowBlur = 20;
+                ctx.beginPath(); ctx.arc(moon.x, moon.y, moon.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            stars.forEach(s => {
+                let starColor = `rgba(255, 255, 255, ${s.alpha})`;
+                if (backgroundState === 2) starColor = `rgba(200, 180, 255, ${s.alpha})`;
+                else if (backgroundState === 3) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                ctx.fillStyle = starColor;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.restore();
+
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
-            stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});
             platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
             drawPlayer();
             ctx.restore();
@@ -291,71 +331,38 @@
 
         function drawPlayer() {
             if (!player || !isSpriteSheetLoaded) return;
-
             const currentAnim = animations[player.animationState];
             let frameIndex = player.animationFrame;
-
-            if (player.animationState === 'jumping') {
-                frameIndex = player.dy < 0 ? 0 : 1;
-            }
-
+            if (player.animationState === 'jumping') { frameIndex = player.dy < 0 ? 0 : 1; }
             const spriteName = currentAnim.frames[frameIndex];
             const sprite = spriteData.sprites.find(s => s.name === spriteName);
-
             if (!sprite) return;
-
             ctx.save();
-            const cX = player.x + player.width / 2;
-            const cY = player.y + player.height / 2;
+            const cX = player.x + player.width / 2; const cY = player.y + player.height / 2;
             ctx.translate(cX, cY);
-            if (player.direction === 'left') {
-                ctx.scale(-1, 1);
-            }
-
-            ctx.drawImage(
-                spriteSheet,
-                sprite.x, sprite.y, sprite.w, sprite.h,
-                -player.width / 2, -player.height / 2, player.width, player.height
-            );
+            if (player.direction === 'left') { ctx.scale(-1, 1); }
+            ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
             ctx.restore();
         }
 
         // --- 콤보 & 파티클 함수 ---
         function handleCombo(platform) {
             if (platform === lastPlatform) return; 
-
             lastPlatform = platform;
             comboCount++;
             clearTimeout(comboTimeout);
-
             if (comboCount >= 2) {
                 const comboBonus = comboCount * 5;
                 score += comboBonus;
                 scoreDisplay.innerText = score;
-
                 comboDisplay.innerText = `${comboCount} COMBO`;
                 comboDisplay.style.opacity = 1;
                 anime.remove(comboDisplay);
-                anime({
-                    targets: comboDisplay,
-                    scale: [1.5, 1],
-                    translateY: [-20, 0],
-                    duration: 400,
-                    easing: 'easeOutElastic(1, .8)'
-                });
+                anime({ targets: comboDisplay, scale: [1.5, 1], translateY: [-20, 0], duration: 400, easing: 'easeOutElastic(1, .8)' });
                 createParticles();
             }
             comboTimeout = setTimeout(() => {
-                anime({
-                    targets: comboDisplay,
-                    opacity: 0,
-                    duration: 500,
-                    easing: 'easeOutExpo',
-                    complete: () => { 
-                        comboCount = 0; 
-                        lastPlatform = null;
-                    }
-                });
+                anime({ targets: comboDisplay, opacity: 0, duration: 500, easing: 'easeOutExpo', complete: () => { comboCount = 0; lastPlatform = null; } });
             }, 1500);
         }
         function createParticles() {
@@ -363,22 +370,11 @@
                 const p = document.createElement('div');
                 p.classList.add('particle');
                 const size = Math.random() * 5 + 2;
-                p.style.width = `${size}px`;
-                p.style.height = `${size}px`;
+                p.style.width = `${size}px`; p.style.height = `${size}px`;
                 p.style.left = `${player.x + player.width / 2}px`;
                 p.style.top = `${player.y + player.height / 2 - cameraY}px`;
                 particleContainer.appendChild(p);
-
-                anime({
-                    targets: p,
-                    translateX: anime.random(-80, 80),
-                    translateY: anime.random(-80, 80),
-                    scale: 0,
-                    opacity: [1, 0],
-                    duration: anime.random(500, 1000),
-                    easing: 'easeOutExpo',
-                    complete: () => { p.remove(); }
-                });
+                anime({ targets: p, translateX: anime.random(-80, 80), translateY: anime.random(-80, 80), scale: 0, opacity: [1, 0], duration: anime.random(500, 1000), easing: 'easeOutExpo', complete: () => { p.remove(); } });
             }
         }
 
@@ -531,7 +527,7 @@
             };
             const mainTitle = document.getElementById('main-title');
             mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
-            anime({ targets: '#logo', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
+            anime({ targets: '#intro-character', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
             anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
             requestAnimationFrame(gameLoop);
         }
