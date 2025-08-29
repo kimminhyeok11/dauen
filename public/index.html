@@ -12,31 +12,49 @@
             --primary-accent: #a252ff; --secondary-accent: #4f46e5; --text-light: #e5e7eb;
             --text-dark: #9ca3af; --bg-dark-1: #111827; --bg-dark-2: rgba(31, 41, 55, 0.5);
             --border-color: rgba(255, 255, 255, 0.1); --error-color: #f87171;
+            --combo-color: #facc15;
         }
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
-        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); }
+        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); overflow: hidden; }
         canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
+        
+        /* --- 콤보 디스플레이 --- */
+        #combo-display {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--combo-color);
+            font-size: 1.8rem;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(250, 204, 21, 0.7);
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* --- 파티클 효과 --- */
+        #particle-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11; }
+        .particle { position: absolute; background-color: var(--combo-color); border-radius: 50%; }
+
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         .overlay.hidden { opacity: 0; visibility: hidden; }
         .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
         #logo { width: 120px; height: 120px; margin-bottom: 20px; }
         .is-hidden { opacity: 0; }
 
-        /* --- 시작 화면 안내 --- */
         #instructions { margin-top: 30px; background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
         .control-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
         .control-info:not(:last-child) { margin-bottom: 15px; }
         .control-info span { font-size: 1.5rem; }
         .control-info p { margin: 0; font-size: 0.9rem; color: var(--text-dark); }
         
-        /* --- 모바일 터치 가이드 --- */
         .touch-indicator { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: rgba(255, 255, 255, 0.2); z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.3s; user-select: none; }
         .touch-indicator.visible { opacity: 1; }
         #touch-left { left: 20px; }
         #touch-right { right: 20px; }
 
-        /* --- 게임 오버 화면 --- */
         #gameOverScreen { justify-content: flex-start; padding-top: 4vh; }
         #finalScore { font-size: 2.5rem; font-weight: 700; color: #facc15; }
         #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 15px; }
@@ -79,6 +97,8 @@
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
     <div id="score-display">0</div>
+    <div id="combo-display"></div>
+    <div id="particle-container"></div>
     <div id="touch-left" class="touch-indicator">&lt;</div>
     <div id="touch-right" class="touch-indicator">&gt;</div>
     
@@ -149,10 +169,13 @@
         const guestbookSubmit = document.getElementById('guestbook-submit'); const guestbookError = document.getElementById('guestbook-error');
         const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
         const touchLeft = document.getElementById('touch-left'); const touchRight = document.getElementById('touch-right');
+        const comboDisplay = document.getElementById('combo-display');
+        const particleContainer = document.getElementById('particle-container');
 
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
+        let comboCount = 0; let comboTimeout;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
         // --- 배경화면 상태 ---
@@ -165,7 +188,7 @@
             { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
             { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
             { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
-            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계 (신규)
+            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계
         ];
         let currentBgTop = backgrounds[0].top;
         let currentBgBottom = backgrounds[0].bottom;
@@ -177,17 +200,32 @@
         // --- Initialization & Game Loop ---
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
         function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
-            backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom; // 배경 초기화
+            backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
+            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout);
         }
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
         function update(deltaTime){
             if(gameState!=='playing'||!player)return;
             const speed = Math.min(9 + score * 0.007, 16); 
-            player.dx=0;if(keys.left){player.dx=-speed;player.direction='left';}if(keys.right){player.dx=speed;player.direction='right';}
+            player.dx=0;
+            if(keys.left){
+                player.dx=-speed;
+                player.direction = 'left';
+            }
+            if(keys.right){
+                player.dx=speed;
+                player.direction = 'right';
+            }
             const currentJumpForce = JUMP_FORCE;
             player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
-            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {player.y = p.y - player.height; player.dy = currentJumpForce; if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} if(p.type === 'moving') player.x += p.dx * deltaTime;}}); }
+            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
+                player.y = p.y - player.height; player.dy = currentJumpForce; 
+                if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
+                if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
+                if(p.type === 'moving') player.x += p.dx * deltaTime;
+                handleCombo();
+            }}); }
             if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
             if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
             if(player.y < highestY){highestY = player.y; score = Math.floor((canvas.height - 80 - highestY) / 10); scoreDisplay.innerText = score;}
@@ -198,32 +236,20 @@
             if(player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
             if(player.y > cameraY + canvas.height) endGame();
 
-            // 배경 업데이트
             let targetState = 0;
-            if (score > 2500) targetState = 3;      // 2501점 이상: 천상계
-            else if (score > 1500) targetState = 2; // 1501점 이상: 제4세계
-            else if (score > 500) targetState = 1;  // 501점 이상: 우주
-            
+            if (score > 2500) targetState = 3; else if (score > 1500) targetState = 2; else if (score > 500) targetState = 1;
             if (backgroundState !== targetState) backgroundState = targetState;
-            
             const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
             const targetBg = backgrounds[backgroundState];
-            currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime);
-            currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime);
-            currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
-            currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime);
-            currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime);
-            currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
+            currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
+            currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
         }
         
         function draw(){
             const rgbToString = (rgb) => `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
             const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            bgGrad.addColorStop(0, rgbToString(currentBgTop));
-            bgGrad.addColorStop(1, rgbToString(currentBgBottom));
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+            bgGrad.addColorStop(0, rgbToString(currentBgTop)); bgGrad.addColorStop(1, rgbToString(currentBgBottom));
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
             stars.forEach(s=>{ctx.fillStyle=`rgba(255,255,255,${s.alpha})`;ctx.beginPath();ctx.arc(s.x,s.y+cameraY*0.8,s.radius,0,Math.PI*2);ctx.fill();});
@@ -245,6 +271,57 @@
         function drawCharacterBody(a1,a2,l1,l2){const tX=-player.width/4,tY=-player.height/2;ctx.beginPath();ctx.arc(0,tY,12,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(tX,tY+10);ctx.lineTo(tX+20,tY+10);ctx.lineTo(tX+15,tY+45);ctx.lineTo(tX+5,tY+45);ctx.closePath();ctx.fill();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a1);ctx.fillRect(-3,0,6,25);ctx.restore();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a2);ctx.fillStyle='#ccc';ctx.fillRect(-3,0,6,25);ctx.restore();ctx.fillStyle='#f7f7f7';ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l1);ctx.fillRect(-4,0,8,30);ctx.restore();ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l2);ctx.fillStyle='#ccc';ctx.fillRect(-4,0,8,30);ctx.restore();}
         function drawIdleFrame(){drawCharacterBody(0.1,-0.1,0.1,-0.1);}function drawRunningFrame1(){drawCharacterBody(Math.PI/4,-Math.PI/4,Math.PI/6,-Math.PI/6);}function drawRunningFrame2(){drawCharacterBody(-Math.PI/4,Math.PI/4,-Math.PI/6,Math.PI/6);}function drawJumpingFrame(){drawCharacterBody(Math.PI/3,-Math.PI/3,Math.PI/5,-Math.PI/5);}
 
+        // --- 콤보 & 파티클 함수 ---
+        function handleCombo() {
+            comboCount++;
+            clearTimeout(comboTimeout);
+            if (comboCount >= 2) {
+                comboDisplay.innerText = `${comboCount} COMBO`;
+                comboDisplay.style.opacity = 1;
+                anime.remove(comboDisplay);
+                anime({
+                    targets: comboDisplay,
+                    scale: [1.5, 1],
+                    translateY: [-20, 0],
+                    duration: 400,
+                    easing: 'easeOutElastic(1, .8)'
+                });
+                createParticles();
+            }
+            comboTimeout = setTimeout(() => {
+                anime({
+                    targets: comboDisplay,
+                    opacity: 0,
+                    duration: 500,
+                    easing: 'easeOutExpo',
+                    complete: () => { comboCount = 0; }
+                });
+            }, 1500);
+        }
+        function createParticles() {
+            for (let i = 0; i < 10; i++) {
+                const p = document.createElement('div');
+                p.classList.add('particle');
+                const size = Math.random() * 5 + 2;
+                p.style.width = `${size}px`;
+                p.style.height = `${size}px`;
+                p.style.left = `${player.x + player.width / 2}px`;
+                p.style.top = `${player.y + player.height / 2 - cameraY}px`;
+                particleContainer.appendChild(p);
+
+                anime({
+                    targets: p,
+                    translateX: anime.random(-80, 80),
+                    translateY: anime.random(-80, 80),
+                    scale: 0,
+                    opacity: [1, 0],
+                    duration: anime.random(500, 1000),
+                    easing: 'easeOutExpo',
+                    complete: () => { p.remove(); }
+                });
+            }
+        }
+
         // --- State Transition ---
         function startGame() { 
             initAudio(); 
@@ -260,6 +337,7 @@
             gameOverScreen.classList.remove('hidden');
             touchLeft.classList.remove('visible');
             touchRight.classList.remove('visible');
+            clearTimeout(comboTimeout); comboCount = 0; comboDisplay.style.opacity = 0;
             
             const scoreObj = { value: 0 };
             anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
