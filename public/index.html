@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>별의 아이</title>
+    <title>에테르의 마지막 별</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -33,10 +33,7 @@
             pointer-events: none;
         }
         
-        #particle-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11; }
-        .particle { position: absolute; background-color: var(--combo-color); border-radius: 50%; }
-
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; }
         .overlay.hidden { opacity: 0; visibility: hidden; }
         .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
         .is-hidden { opacity: 0; }
@@ -76,8 +73,8 @@
         #touch-left { left: 20px; }
         #touch-right { right: 20px; }
 
-        #gameOverScreen { justify-content: flex-start; padding-top: 2vh; }
-        #finalScore { font-size: 2.5rem; font-weight: 700; color: #facc15; }
+        #gameOverScreen { justify-content: flex-start; padding-top: 2vh; overflow-y: auto; }
+        #finalScore { font-size: 2.5rem; font-weight: 700; color: var(--combo-color); }
         #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 5px; }
 
         .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
@@ -87,7 +84,7 @@
         #ranking-list { list-style: none; padding: 0; margin: 0; }
         #ranking-list li { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 0.9rem; }
         .rank-name { color: var(--text-light); }
-        .rank-score { font-weight: 600; color: #facc15; }
+        .rank-score { font-weight: 600; color: var(--combo-color); }
 
         #guestbook-entries { max-height: 120px; overflow-y: auto; }
         .guestbook-entry { padding: 8px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
@@ -119,14 +116,13 @@
     <canvas id="gameCanvas"></canvas>
     <div id="score-display">0</div>
     <div id="combo-display"></div>
-    <div id="particle-container"></div>
     <div id="touch-left" class="touch-indicator">&lt;</div>
     <div id="touch-right" class="touch-indicator">&gt;</div>
     
     <div id="startScreen" class="overlay">
         <div id="intro-character"></div>
-        <h2 id="main-title">별의 아이</h2>
-        <p class="story-blurb">길 잃은 작은 별이 집으로 돌아갈 수 있도록 도와주세요.</p>
+        <h2 id="main-title">에테르의 마지막 별</h2>
+        <p class="story-blurb">길 잃은 마지막 별이 고향으로 돌아갈 수 있도록 도와주세요.</p>
         <div id="instructions">
             <div class="control-info"><span>🖥️</span><p>A / D or ← / →</p></div>
             <div class="control-info"><span>📱</span><p>Touch Left / Right</p></div>
@@ -192,7 +188,6 @@
         const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
         const touchLeft = document.getElementById('touch-left'); const touchRight = document.getElementById('touch-right');
         const comboDisplay = document.getElementById('combo-display');
-        const particleContainer = document.getElementById('particle-container');
 
         // --- Sprite Sheet 설정 ---
         const spriteSheet = new Image();
@@ -210,6 +205,10 @@
                 { "name": "sprite_9", "x": 429, "y": 1050, "w": 196, "h": 355 }
             ]
         };
+        const spriteMap = spriteData.sprites.reduce((acc, sprite) => {
+            acc[sprite.name] = sprite;
+            return acc;
+        }, {});
         const animations = {
             idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
             running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
@@ -217,7 +216,7 @@
         };
 
         // --- Game State & Constants ---
-        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
+        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
         let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
@@ -248,7 +247,7 @@
             moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
             gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
-            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null;
+            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
         }
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
@@ -289,6 +288,7 @@
             currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
 
             stars.forEach(s => { s.alpha = s.baseAlpha + Math.sin(Date.now() * s.twinkleSpeed) * (s.baseAlpha / 2); });
+            particles.forEach((p, i) => { p.x += p.dx * deltaTime; p.y += p.dy * deltaTime; p.life -= deltaTime; if(p.life <= 0) particles.splice(i, 1); });
         }
         
         function draw(){
@@ -316,6 +316,10 @@
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
             platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
+            
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.8)';
+            particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / 60), 0, Math.PI * 2); ctx.fill(); });
+
             drawPlayer();
             ctx.restore();
         }
@@ -335,7 +339,7 @@
             let frameIndex = player.animationFrame;
             if (player.animationState === 'jumping') { frameIndex = player.dy < 0 ? 0 : 1; }
             const spriteName = currentAnim.frames[frameIndex];
-            const sprite = spriteData.sprites.find(s => s.name === spriteName);
+            const sprite = spriteMap[spriteName];
             if (!sprite) return;
             ctx.save();
             const cX = player.x + player.width / 2; const cY = player.y + player.height / 2;
@@ -366,15 +370,18 @@
             }, 1500);
         }
         function createParticles() {
+            const pX = player.x + player.width / 2;
+            const pY = player.y + player.height / 2;
             for (let i = 0; i < 10; i++) {
-                const p = document.createElement('div');
-                p.classList.add('particle');
-                const size = Math.random() * 5 + 2;
-                p.style.width = `${size}px`; p.style.height = `${size}px`;
-                p.style.left = `${player.x + player.width / 2}px`;
-                p.style.top = `${player.y + player.height / 2 - cameraY}px`;
-                particleContainer.appendChild(p);
-                anime({ targets: p, translateX: anime.random(-80, 80), translateY: anime.random(-80, 80), scale: 0, opacity: [1, 0], duration: anime.random(500, 1000), easing: 'easeOutExpo', complete: () => { p.remove(); } });
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                particles.push({
+                    x: pX, y: pY,
+                    dx: Math.cos(angle) * speed,
+                    dy: Math.sin(angle) * speed,
+                    size: Math.random() * 3 + 2,
+                    life: 60
+                });
             }
         }
 
