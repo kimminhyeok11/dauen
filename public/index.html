@@ -175,7 +175,7 @@
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
-        let comboCount = 0; let comboTimeout;
+        let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
         // --- 배경화면 상태 ---
@@ -201,7 +201,7 @@
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
         function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
-            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout);
+            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null;
         }
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
@@ -209,14 +209,8 @@
             if(gameState!=='playing'||!player)return;
             const speed = Math.min(9 + score * 0.007, 16); 
             player.dx=0;
-            if(keys.left){
-                player.dx=-speed;
-                player.direction = 'left';
-            }
-            if(keys.right){
-                player.dx=speed;
-                player.direction = 'right';
-            }
+            if(keys.left){ player.dx=-speed; player.direction = 'left'; }
+            if(keys.right){ player.dx=speed; player.direction = 'right'; }
             const currentJumpForce = JUMP_FORCE;
             player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
             if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
@@ -224,7 +218,7 @@
                 if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
                 if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
                 if(p.type === 'moving') player.x += p.dx * deltaTime;
-                handleCombo();
+                handleCombo(p);
             }}); }
             if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
             if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
@@ -272,10 +266,19 @@
         function drawIdleFrame(){drawCharacterBody(0.1,-0.1,0.1,-0.1);}function drawRunningFrame1(){drawCharacterBody(Math.PI/4,-Math.PI/4,Math.PI/6,-Math.PI/6);}function drawRunningFrame2(){drawCharacterBody(-Math.PI/4,Math.PI/4,-Math.PI/6,Math.PI/6);}function drawJumpingFrame(){drawCharacterBody(Math.PI/3,-Math.PI/3,Math.PI/5,-Math.PI/5);}
 
         // --- 콤보 & 파티클 함수 ---
-        function handleCombo() {
+        function handleCombo(platform) {
+            if (platform === lastPlatform) return; // 같은 발판이면 콤보 증가 안함
+
+            lastPlatform = platform;
             comboCount++;
             clearTimeout(comboTimeout);
+
             if (comboCount >= 2) {
+                // 콤보 보너스 점수 추가
+                const comboBonus = comboCount * 5;
+                score += comboBonus;
+                scoreDisplay.innerText = score;
+
                 comboDisplay.innerText = `${comboCount} COMBO`;
                 comboDisplay.style.opacity = 1;
                 anime.remove(comboDisplay);
@@ -294,7 +297,10 @@
                     opacity: 0,
                     duration: 500,
                     easing: 'easeOutExpo',
-                    complete: () => { comboCount = 0; }
+                    complete: () => { 
+                        comboCount = 0; 
+                        lastPlatform = null;
+                    }
                 });
             }, 1500);
         }
@@ -337,7 +343,7 @@
             gameOverScreen.classList.remove('hidden');
             touchLeft.classList.remove('visible');
             touchRight.classList.remove('visible');
-            clearTimeout(comboTimeout); comboCount = 0; comboDisplay.style.opacity = 0;
+            clearTimeout(comboTimeout); comboCount = 0; comboDisplay.style.opacity = 0; lastPlatform = null;
             
             const scoreObj = { value: 0 };
             anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
