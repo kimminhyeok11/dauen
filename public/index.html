@@ -16,7 +16,7 @@
         }
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
         #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); overflow: hidden; }
-        canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; image-rendering: pixelated; }
         #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
         
         /* --- 콤보 디스플레이 --- */
@@ -172,6 +172,28 @@
         const comboDisplay = document.getElementById('combo-display');
         const particleContainer = document.getElementById('particle-container');
 
+        // --- Sprite Sheet 설정 ---
+        const spriteSheet = new Image();
+        let isSpriteSheetLoaded = false;
+        const spriteData = {
+            sprites: [
+                { "name": "sprite_1", "x": 128, "y": 169, "w": 209, "h": 352 },
+                { "name": "sprite_2", "x": 414, "y": 170, "w": 210, "h": 355 },
+                { "name": "sprite_3", "x": 688, "y": 170, "w": 208, "h": 353 },
+                { "name": "sprite_4", "x": 128, "y": 605, "w": 225, "h": 355 },
+                { "name": "sprite_5", "x": 400, "y": 605, "w": 225, "h": 347 },
+                { "name": "sprite_6", "x": 688, "y": 605, "w": 208, "h": 355 },
+                { "name": "sprite_7", "x": 147, "y": 1049, "w": 206, "h": 357 },
+                { "name": "sprite_8", "x": 702, "y": 1049, "w": 200, "h": 343 },
+                { "name": "sprite_9", "x": 429, "y": 1050, "w": 196, "h": 355 }
+            ]
+        };
+        const animations = {
+            idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
+            running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
+            jumping: { frames: ["sprite_8", "sprite_9"], speed: 1 } // 점프는 dy값으로 프레임 결정
+        };
+
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
@@ -199,7 +221,7 @@
 
         // --- Initialization & Game Loop ---
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-20,y:canvas.height-80,width:40,height:70,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0,animationSpeed:5};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];stars=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);for(let i=0;i<100;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height*2,radius:Math.random()*1.5,alpha:Math.random()});}gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
             comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null;
         }
@@ -226,8 +248,14 @@
             platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
             if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
             platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
-            player.frameCount++; if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
-            if(player.frameCount % player.animationSpeed === 0) player.animationFrame = (player.animationFrame + 1) % 20;
+            
+            // 애니메이션 상태 업데이트
+            player.frameCount++; 
+            const currentAnimData = animations[player.animationState];
+            if(player.frameCount % currentAnimData.speed === 0) {
+                player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length;
+            }
+            if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
             if(player.y > cameraY + canvas.height) endGame();
 
             let targetState = 0;
@@ -261,20 +289,46 @@
             requestAnimationFrame(gameLoop);
         }
 
-        function drawPlayer(){if(!player)return;ctx.save();ctx.fillStyle='#f7f7f7';const cX=player.x+player.width/2,cY=player.y+player.height/2;ctx.translate(cX,cY);if(player.direction==='left')ctx.scale(-1,1);const anim=player.animationState;if(anim==='jumping')drawJumpingFrame();else if(anim==='running')(player.animationFrame<10)?drawRunningFrame1():drawRunningFrame2();else drawIdleFrame();ctx.restore();}
-        function drawCharacterBody(a1,a2,l1,l2){const tX=-player.width/4,tY=-player.height/2;ctx.beginPath();ctx.arc(0,tY,12,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(tX,tY+10);ctx.lineTo(tX+20,tY+10);ctx.lineTo(tX+15,tY+45);ctx.lineTo(tX+5,tY+45);ctx.closePath();ctx.fill();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a1);ctx.fillRect(-3,0,6,25);ctx.restore();ctx.save();ctx.translate(tX+10,tY+20);ctx.rotate(a2);ctx.fillStyle='#ccc';ctx.fillRect(-3,0,6,25);ctx.restore();ctx.fillStyle='#f7f7f7';ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l1);ctx.fillRect(-4,0,8,30);ctx.restore();ctx.save();ctx.translate(tX+10,tY+45);ctx.rotate(l2);ctx.fillStyle='#ccc';ctx.fillRect(-4,0,8,30);ctx.restore();}
-        function drawIdleFrame(){drawCharacterBody(0.1,-0.1,0.1,-0.1);}function drawRunningFrame1(){drawCharacterBody(Math.PI/4,-Math.PI/4,Math.PI/6,-Math.PI/6);}function drawRunningFrame2(){drawCharacterBody(-Math.PI/4,Math.PI/4,-Math.PI/6,Math.PI/6);}function drawJumpingFrame(){drawCharacterBody(Math.PI/3,-Math.PI/3,Math.PI/5,-Math.PI/5);}
+        function drawPlayer() {
+            if (!player || !isSpriteSheetLoaded) return;
+
+            const currentAnim = animations[player.animationState];
+            let frameIndex = player.animationFrame;
+
+            if (player.animationState === 'jumping') {
+                frameIndex = player.dy < 0 ? 0 : 1;
+            }
+
+            const spriteName = currentAnim.frames[frameIndex];
+            const sprite = spriteData.sprites.find(s => s.name === spriteName);
+
+            if (!sprite) return;
+
+            ctx.save();
+            const cX = player.x + player.width / 2;
+            const cY = player.y + player.height / 2;
+            ctx.translate(cX, cY);
+            if (player.direction === 'left') {
+                ctx.scale(-1, 1);
+            }
+
+            ctx.drawImage(
+                spriteSheet,
+                sprite.x, sprite.y, sprite.w, sprite.h,
+                -player.width / 2, -player.height / 2, player.width, player.height
+            );
+            ctx.restore();
+        }
 
         // --- 콤보 & 파티클 함수 ---
         function handleCombo(platform) {
-            if (platform === lastPlatform) return; // 같은 발판이면 콤보 증가 안함
+            if (platform === lastPlatform) return; 
 
             lastPlatform = platform;
             comboCount++;
             clearTimeout(comboTimeout);
 
             if (comboCount >= 2) {
-                // 콤보 보너스 점수 추가
                 const comboBonus = comboCount * 5;
                 score += comboBonus;
                 scoreDisplay.innerText = score;
@@ -471,6 +525,10 @@
         function init() {
             setCanvasSize();
             setupListeners();
+            spriteSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp';
+            spriteSheet.onload = () => {
+                isSpriteSheetLoaded = true;
+            };
             const mainTitle = document.getElementById('main-title');
             mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
             anime({ targets: '#logo', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
