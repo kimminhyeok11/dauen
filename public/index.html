@@ -191,7 +191,10 @@
 
         // --- Sprite Sheet 설정 ---
         const spriteSheet = new Image();
+        const backgroundSheet = new Image(); // 배경 스프라이트 시트
         let isSpriteSheetLoaded = false;
+        let isBackgroundSheetLoaded = false; // 배경 스프라이트 로드 상태
+
         const spriteData = {
             sprites: [
                 { "name": "sprite_1", "x": 128, "y": 169, "w": 209, "h": 352 },
@@ -205,10 +208,21 @@
                 { "name": "sprite_9", "x": 429, "y": 1050, "w": 196, "h": 355 }
             ]
         };
-        const spriteMap = spriteData.sprites.reduce((acc, sprite) => {
-            acc[sprite.name] = sprite;
-            return acc;
-        }, {});
+        const backgroundSpriteData = {
+            sprites: [
+                { "name": "sprite_2", "x": 689, "y": 94, "w": 321, "h": 434 },
+                { "name": "sprite_3", "x": 357, "y": 107, "w": 320, "h": 418 },
+                { "name": "sprite_4", "x": 55, "y": 132, "w": 265, "h": 381 },
+                { "name": "sprite_5", "x": 424, "y": 571, "w": 170, "h": 414 },
+                { "name": "sprite_6", "x": 660, "y": 572, "w": 303, "h": 412 },
+                { "name": "sprite_7", "x": 41, "y": 584, "w": 308, "h": 397 },
+                { "name": "sprite_9", "x": 396, "y": 1036, "w": 234, "h": 400 },
+                { "name": "sprite_10", "x": 704, "y": 1047, "w": 296, "h": 390 },
+                { "name": "sprite_11", "x": 43, "y": 1080, "w": 302, "h": 188 }
+            ]
+        };
+
+        const spriteMap = spriteData.sprites.reduce((acc, sprite) => { acc[sprite.name] = sprite; return acc; }, {});
         const animations = {
             idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
             running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
@@ -216,22 +230,22 @@
         };
 
         // --- Game State & Constants ---
-        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
+        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, baseScore = 0, bonusScore = 0, highestY = 0, finalGameScore = 0;
         let guestbookLimit = 3; let lastTime = 0;
+        let availableBackgroundSprites = [];
         let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
         // --- 배경화면 상태 ---
         let backgroundState = 0;
-        const hexToRgb = (hex) => {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
-        };
+        const hexToRgb = (hex) => { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null; };
         const backgrounds = [
             { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
             { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
             { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
-            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계
+            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') },  // 3: 천상계
+            { top: hexToRgb('#101030'), bottom: hexToRgb('#301040') },  // 4: 심연 (Abyss)
+            { top: hexToRgb('#FFFFE0'), bottom: hexToRgb('#FFFFFF') }   // 5: 특이점 (Singularity)
         ];
         let currentBgTop = backgrounds[0].top;
         let currentBgBottom = backgrounds[0].bottom;
@@ -241,15 +255,87 @@
         function initAudio() { if(isAudioReady) return; Tone.start().then(() => { jumpSound = new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.1,sustain:0.05,release:0.1}}).toDestination(); gameOverSound = new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.1,decay:0.5,sustain:0.1,release:0.5}}).toDestination(); crumbleSound = new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1}}).toDestination(); isAudioReady = true; }); }
 
         // --- Initialization & Game Loop ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
+        
+        function resetGame(){
+            keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;baseScore=0;bonusScore=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;
+            platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static', gimmick: 'none', isVisible: true});
+
+            // 안전한 초기 발판 생성
+            let lastX = canvas.width / 2;
+            for (let i = 1; i < 20; i++) {
+                const yPos = canvas.height - 40 - i * 85;
+                const width = 100;
+                const newX = lastX + (Math.random() * 200 - 100);
+                const clampedX = Math.max(0, Math.min(newX, canvas.width - width));
+                platforms.push({ x: clampedX, y: yPos, width, height: 20, type: 'static', gimmick: 'none', dx: 0, dy: 0, verticalRange: 0, initialY: yPos, glitchTimer: 0, isVisible: true, state: 'intact', alpha: 1 });
+                lastX = clampedX;
+            }
+
             stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
             moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
             gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
             comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
+            backgroundElements = [];
+            
+            const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
+            shuffleArray(allBackgroundSpriteNames);
+            availableBackgroundSprites = allBackgroundSpriteNames;
         }
-        function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
+        
+        function generatePlatform(yPos){
+            let width = Math.random() * 80 + 80;
+            const x = Math.random() * (canvas.width - width);
+            let type = 'static';
+            let gimmick = 'none';
+            let dx = 0;
+            let dy = 0;
+            let verticalRange = 0;
+            let initialY = yPos;
+            let glitchTimer = 0;
+            let isVisible = true;
+
+            const rand = Math.random();
+            const gimmickRand = Math.random();
+
+            // 스테이지별 기믹 적용 (backgroundState는 점수에 따라 update에서 결정됨)
+            const currentStage = backgroundState;
+            if (currentStage >= 4) { // 심연 이상
+                const allGimmicks = [];
+                if (currentStage >= 4) allGimmicks.push('fading', 'short');
+                if (currentStage >= 5) allGimmicks.push('fast_moving');
+                if (currentStage >= 6) allGimmicks.push('glitching');
+                if (currentStage >= 7) allGimmicks.push('vertical');
+
+                if (gimmickRand < (currentStage - 3) * 0.15) { // 스테이지가 높을수록 기믹 확률 증가
+                    gimmick = allGimmicks[Math.floor(Math.random() * allGimmicks.length)];
+                }
+
+                switch(gimmick) {
+                    case 'fading': width = Math.random() * 60 + 60; break;
+                    case 'short': width = Math.random() * 60 + 60; break;
+                    case 'fast_moving': type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2 + 2.5); break;
+                    case 'glitching': glitchTimer = Math.random() * 120 + 60; break;
+                    case 'vertical': dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1 + 0.5); verticalRange = Math.random() * 40 + 30; break;
+                }
+            }
+            
+            // 일반 발판 생성 로직 (기믹이 없을 경우)
+            if (type === 'static' && gimmick === 'none') {
+                 if (score > 200 && rand < 0.20) type = 'crumbling';
+                 else if (score > 50 && rand < 0.25) { type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1); }
+            }
+
+            platforms.push({ x, y: yPos, width, height: 20, type, gimmick, dx, dy, verticalRange, initialY, glitchTimer, isVisible, state: 'intact', alpha: 1 });
+        }
         
         function update(deltaTime){
             if(gameState!=='playing'||!player)return;
@@ -259,20 +345,45 @@
             if(keys.right){ player.dx=speed; player.direction = 'right'; }
             const currentJumpForce = JUMP_FORCE;
             player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
-            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
+            if(player.dy > 0){platforms.forEach(p => {if(p.isVisible && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
                 player.y = p.y - player.height; player.dy = currentJumpForce; 
                 if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
                 if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
+                if(p.gimmick === 'fading' && p.state === 'intact') { p.state = 'fading'; }
                 if(p.type === 'moving') player.x += p.dx * deltaTime;
                 handleCombo(p);
             }}); }
             if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
             if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
-            if(player.y < highestY){highestY = player.y; score = Math.floor((canvas.height - 80 - highestY) / 10); scoreDisplay.innerText = score;}
-            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
-            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
-            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
             
+            if(player.y < highestY){
+                highestY = player.y; 
+                baseScore = Math.floor((canvas.height - 80 - highestY) / 10);
+            }
+            score = baseScore + bonusScore;
+            scoreDisplay.innerText = score;
+
+            platforms.forEach(p => {
+                if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} 
+                if(p.state === 'shaking' || p.state === 'fading') { p.alpha = Math.max(0, p.alpha - 0.05 * deltaTime); if(p.alpha <= 0) p.state = 'faded'; }
+                if(p.state === 'faded') { p.alpha = Math.min(1, p.alpha + 0.01 * deltaTime); if(p.alpha >= 1) p.state = 'intact'; }
+
+                if (p.gimmick === 'vertical') {
+                    p.y += p.dy * deltaTime;
+                    if (p.y > p.initialY + p.verticalRange || p.y < p.initialY - p.verticalRange) { p.dy *= -1; }
+                }
+                if (p.gimmick === 'glitching') {
+                    p.glitchTimer -= deltaTime;
+                    if (p.glitchTimer <= 0) {
+                        p.isVisible = !p.isVisible;
+                        p.glitchTimer = p.isVisible ? Math.random() * 120 + 60 : Math.random() * 60 + 30;
+                    }
+                }
+            });
+            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
+            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
+            backgroundElements = backgroundElements.filter(el => (el.y - cameraY * 0.5) < canvas.height + 50);
+
             player.frameCount++; 
             const currentAnimData = animations[player.animationState];
             if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
@@ -280,10 +391,44 @@
             if(player.y > cameraY + canvas.height) endGame();
 
             let targetState = 0;
-            if (score > 2500) targetState = 3; else if (score > 1500) targetState = 2; else if (score > 500) targetState = 1;
-            if (backgroundState !== targetState) backgroundState = targetState;
+            if (score > 1200000) targetState = 10;
+            else if (score > 850000) targetState = 9;
+            else if (score > 600000) targetState = 8;
+            else if (score > 400000) targetState = 7;
+            else if (score > 250000) targetState = 6;
+            else if (score > 150000) targetState = 5;
+            else if (score > 100000) targetState = 4;
+            else if (score > 30000) targetState = 3;
+            else if (score > 20000) targetState = 2;
+            else if (score > 10000) targetState = 1;
+            
+            if (backgroundState !== targetState) {
+                const oldState = backgroundState;
+                backgroundState = targetState;
+                // 배경 요소는 페이즈가 실제로 바뀔 때만 추가
+                if (backgroundState > oldState) {
+                    if (availableBackgroundSprites.length === 0) {
+                        const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
+                        shuffleArray(allBackgroundSpriteNames);
+                        availableBackgroundSprites = allBackgroundSpriteNames;
+                    }
+                    const spriteName = availableBackgroundSprites.pop();
+                    const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
+                    if(spriteInfo){
+                         const newElementHeight = spriteInfo.h / 1.5;
+                         backgroundElements.push({
+                            spriteName: spriteInfo.name,
+                            x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
+                            y: cameraY * 0.5 - newElementHeight - (Math.random() * 200),
+                            width: spriteInfo.w / 1.5,
+                            height: newElementHeight
+                        });
+                    }
+                }
+            }
+
             const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
-            const targetBg = backgrounds[backgroundState];
+            const targetBg = backgrounds[Math.min(backgroundState, backgrounds.length - 1)]; // 배경 배열 초과 방지
             currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
             currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
 
@@ -306,16 +451,39 @@
             }
             stars.forEach(s => {
                 let starColor = `rgba(255, 255, 255, ${s.alpha})`;
-                if (backgroundState === 2) starColor = `rgba(200, 180, 255, ${s.alpha})`;
-                else if (backgroundState === 3) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                if (backgroundState === 2 || backgroundState === 6) starColor = `rgba(200, 180, 255, ${s.alpha})`;
+                else if (backgroundState === 3 || backgroundState === 5 || backgroundState >= 9) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                else if (backgroundState === 4 || backgroundState === 7) starColor = `rgba(180, 180, 255, ${s.alpha})`; 
                 ctx.fillStyle = starColor;
                 ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
             });
             ctx.restore();
+            
+            ctx.save();
+            ctx.translate(0, -cameraY * 0.5);
+            if (isBackgroundSheetLoaded) {
+                backgroundElements.forEach(el => {
+                    const sprite = backgroundSpriteData.sprites.find(s => s.name === el.spriteName);
+                    if (sprite) {
+                        ctx.drawImage(backgroundSheet, sprite.x, sprite.y, sprite.w, sprite.h, el.x, el.y, el.width, el.height);
+                    }
+                });
+            }
+            ctx.restore();
 
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
-            platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
+            platforms.forEach(p=>{
+                if (!p.isVisible) return;
+                ctx.globalAlpha=p.alpha;
+                const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);
+                if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}
+                else if(p.type==='crumbling' || p.gimmick === 'fading'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}
+                else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}
+                ctx.fillStyle=grad;
+                ctx.fillRect(p.x,p.y,p.width,p.height);
+                ctx.globalAlpha=1;
+            });
             
             ctx.fillStyle = 'rgba(250, 204, 21, 0.8)';
             particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / 60), 0, Math.PI * 2); ctx.fill(); });
@@ -345,6 +513,7 @@
             const cX = player.x + player.width / 2; const cY = player.y + player.height / 2;
             ctx.translate(cX, cY);
             if (player.direction === 'left') { ctx.scale(-1, 1); }
+            
             ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
             ctx.restore();
         }
@@ -357,8 +526,7 @@
             clearTimeout(comboTimeout);
             if (comboCount >= 2) {
                 const comboBonus = comboCount * 5;
-                score += comboBonus;
-                scoreDisplay.innerText = score;
+                bonusScore += comboBonus;
                 comboDisplay.innerText = `${comboCount} COMBO`;
                 comboDisplay.style.opacity = 1;
                 anime.remove(comboDisplay);
@@ -529,9 +697,10 @@
             setCanvasSize();
             setupListeners();
             spriteSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp';
-            spriteSheet.onload = () => {
-                isSpriteSheetLoaded = true;
-            };
+            spriteSheet.onload = () => { isSpriteSheetLoaded = true; };
+            backgroundSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/background1.webp';
+            backgroundSheet.onload = () => { isBackgroundSheetLoaded = true; };
+
             const mainTitle = document.getElementById('main-title');
             mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
             anime({ targets: '#intro-character', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
@@ -545,3 +714,4 @@
 
 </body>
 </html>
+
